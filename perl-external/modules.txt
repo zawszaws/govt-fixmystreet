@@ -5,6 +5,7 @@ Catalyst
 Catalyst::Action::RenderView
 Catalyst::Authentication::Store::DBIx::Class
 Catalyst::Devel
+Catalyst::Engine::PSGI
 Catalyst::Model::Adaptor
 Catalyst::Plugin::Authentication
 Catalyst::Plugin::ConfigLoader
@@ -41,10 +42,13 @@ Locale::Maketext::Lexicon
 Moose
 Net::Domain::TLD
 Path::Class
+Plack
+Plack::Middleware::ReverseProxy
 Readonly
 Return::Value
 Sort::Key
 Spiffy
+Starman
 Sub::Override
 Template::Plugin::Comma
 Template::Plugin::DateTime::Format

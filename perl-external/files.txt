@@ -75,6 +75,7 @@
 /authors/id/D/DA/DAGOLDEN/Parse-CPAN-Meta-1.4401.tar.gz
 /authors/id/D/DA/DAGOLDEN/Perl-OSType-1.002.tar.gz
 /authors/id/D/DA/DAGOLDEN/Sub-Uplevel-0.22.tar.gz
+/authors/id/D/DA/DANJOU/Plack-Middleware-ReverseProxy-0.09.tar.gz
 /authors/id/D/DC/DCANTRELL/CPAN-ParseDistribution-1.3.tar.gz
 /authors/id/D/DC/DCANTRELL/Data-Compare-1.22.tar.gz
 /authors/id/D/DC/DCONWAY/Lingua-EN-Inflect-1.893.tar.gz
@@ -93,6 +94,7 @@
 /authors/id/D/DR/DROLSKY/DateTime-Format-Strptime-1.5000.tar.gz
 /authors/id/D/DR/DROLSKY/DateTime-Locale-0.45.tar.gz
 /authors/id/D/DR/DROLSKY/DateTime-TimeZone-1.34.tar.gz
+/authors/id/D/DR/DROLSKY/Devel-StackTrace-1.27.tar.gz
 /authors/id/D/DR/DROLSKY/File-ChangeNotify-0.19.tar.gz
 /authors/id/D/DR/DROLSKY/File-Slurp-9999.13.tar.gz
 /authors/id/D/DR/DROLSKY/Moose-1.24.tar.gz
@@ -138,7 +140,6 @@
 /authors/id/G/GA/GAAS/URI-1.58.tar.gz
 /authors/id/G/GA/GAAS/WWW-RobotRules-6.00.tar.gz
 /authors/id/G/GA/GAAS/libwww-perl-6.01.tar.gz
-/authors/id/G/GA/GAAS/libwww-perl-6.02.tar.gz
 /authors/id/G/GB/GBARR/CPAN-DistnameInfo-0.12.tar.gz
 /authors/id/G/GB/GBARR/Scalar-List-Utils-1.23.tar.gz
 /authors/id/G/GE/GETTY/HTTP-Body-1.11.tar.gz
@@ -154,6 +155,7 @@
 /authors/id/J/JR/JROCKWAY/Context-Preserve-0.01.tar.gz
 /authors/id/J/JR/JROCKWAY/Template-Plugin-DateTime-Format-0.02.tar.gz
 /authors/id/K/KA/KASEI/Class-Accessor-0.34.tar.gz
+/authors/id/K/KA/KAZUHO/HTTP-Parser-XS-0.14.tar.gz
 /authors/id/K/KW/KWILLIAMS/Path-Class-0.23.tar.gz
 /authors/id/K/KW/KWILLIAMS/Probe-Perl-0.01.tar.gz
 /authors/id/L/LB/LBROCARD/Data-Page-2.02.tar.gz
@@ -166,7 +168,13 @@
 /authors/id/M/MI/MIROD/XML-XPathEngine-0.12.tar.gz
 /authors/id/M/MI/MIYAGAWA/App-cpanminus-1.4004.tar.gz
 /authors/id/M/MI/MIYAGAWA/App-cpanminus-1.4007.tar.gz
+/authors/id/M/MI/MIYAGAWA/Catalyst-Engine-PSGI-0.13.tar.gz
+/authors/id/M/MI/MIYAGAWA/Devel-StackTrace-AsHTML-0.11.tar.gz
+/authors/id/M/MI/MIYAGAWA/Filesys-Notify-Simple-0.07.tar.gz
 /authors/id/M/MI/MIYAGAWA/HTML-Selector-XPath-0.07.tar.gz
+/authors/id/M/MI/MIYAGAWA/Hash-MultiValue-0.08.tar.gz
+/authors/id/M/MI/MIYAGAWA/Plack-0.9980.tar.gz
+/authors/id/M/MI/MIYAGAWA/Starman-0.2011.tar.gz
 /authors/id/M/MI/MIYAGAWA/Template-Plugin-Comma-0.04.tar.gz
 /authors/id/M/MI/MIYAGAWA/Web-Scraper-0.34.tar.gz
 /authors/id/M/ML/MLEHMANN/JSON-XS-2.3.tar.gz
@@ -199,6 +207,7 @@
 /authors/id/R/RG/RGARCIA/Sub-Identify-0.04.tar.gz
 /authors/id/R/RG/RGARCIA/Test-LongString-0.14.tar.gz
 /authors/id/R/RG/RGARCIA/Test-LongString-0.15.tar.gz
+/authors/id/R/RH/RHANDOM/Net-Server-0.99.tar.gz
 /authors/id/R/RI/RIBASUSHI/Class-C3-Componentised-1.0008.tar.gz
 /authors/id/R/RJ/RJBS/Data-OptList-0.106.tar.gz
 /authors/id/R/RJ/RJBS/Email-Address-1.892.tar.gz
@@ -246,6 +255,8 @@
 /authors/id/T/TM/TMTM/Class-Data-Inheritable-0.08.tar.gz
 /authors/id/T/TO/TODDR/Locale-Maketext-1.19.tar.gz
 /authors/id/T/TO/TOKUHIROM/Test-Requires-0.06.tar.gz
+/authors/id/T/TO/TOKUHIROM/Test-SharedFork-0.16.tar.gz
+/authors/id/T/TO/TOKUHIROM/Test-TCP-1.13.tar.gz
 /authors/id/T/TU/TURNSTEP/DBD-Pg-2.17.2.tar.gz
 /authors/id/T/TU/TURNSTEP/DBD-Pg-2.18.1.tar.gz
 /authors/id/U/UL/ULPFR/Text-German-0.06.tar.gz

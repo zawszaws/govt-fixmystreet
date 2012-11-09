@@ -17,12 +17,10 @@ sed "s/^  - cobrand_two: 'hostname_substring2'/  - fixmystreet: 'localhost'/" -i
 # not the guest (because the port is 8080 on your host, but 80 on the guest)
 sed "s/^BASE_URL: 'http:\/\/www.example.org'/BASE_URL: 'http:\/\/localhost:8080'/" -i /var/www/localhost/fixmystreet/conf/general.yml
 
-# Run the update-all-reports script
-/var/www/localhost/fixmystreet/bin/cron-wrapper /var/www/localhost/fixmystreet/bin/update-all-reports
-
 # Generate Welsh and Norweigian locales so i8n tests pass
 locale-gen cy_GB.UTF-8
 locale-gen nb_NO.UTF-8
 
 echo "You can now ssh into your vagrant box: vagrant ssh"
 echo "The website code is found in: /var/www/localhost/fixmystreet or ~/fixmystreet"
+echo "Note: to get a fully up and running system, you may want to run bin/cron-wrapper bin/update-all-reports after you login"

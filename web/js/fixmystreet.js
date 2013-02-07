@@ -197,6 +197,22 @@ $(function(){
         });
     });
 
+    // display a mock file-input (so we can apply styles to it) with the real input (opacity: 0) over it
+    // width of the input[file] element is inconsistent across browsers, so mouseover on button may be a little patchy
+    $("#form_photo")
+        .wrap('<div id="form_photo_wrap" style="position:relative;width:95%"/>')
+        .css({zIndex:"3", opacity:"0", position:"absolute", top:"0", left:"0", width:"50%" });
+    $('#form_photo_wrap')
+        .append('<input id="mock_photo_text" type="text" disabled="disabled"/>')
+        .append('<button id="mock_photo_btn" style="position:absolute;top:0;right:0;z-index:2">'
+          + translation_strings.file_input + '</button/>');
+    $("#form_photo_wrap").on('click', '#mock_photo_btn', function(e){
+        e.preventDefault();
+        $("#form_photo").click();
+    });
+    $("#form_photo").on('change', function(){
+        $('#mock_photo_text').val($("#form_photo").val());
+    });
 });
 
 })(jQuery);

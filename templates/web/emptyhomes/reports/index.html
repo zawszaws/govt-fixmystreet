@@ -10,22 +10,19 @@
 <th>[% loc('Name') %]</th>
 <th>[% loc('New problems') %]</th>
 <th>[% loc('Older problems') %]</th>
-<th>[% loc('Recently fixed') %]</th>
-<th>[% loc('Older fixed') %]</th>
 </tr>
 
-[% FOREACH area IN areas_info_sorted %]
+[% FOREACH body IN bodies %]
 <tr align="center"
-[%- IF area.generation_high == 10 %] class="gone"
+[%- IF NOT body.areas.size %] class="gone"
 [%- ELSIF loop.count % 2 %] class="a"
 [%- END -%]
 >
-<td align="left">[% area.name %]</td>
-<td>[% open.${area.id}.new or 0 %]</td>
-<td>[% (open.${area.id}.older or 0) + (open.${area.id}.unknown or 0) %]</td>
-<td>[% fixed.${area.id}.new or 0 %]</td>
-<td>[% fixed.${area.id}.old or 0 %]</td>
+<td align="left"><a href="[% body.url(c) %]">[% body.name %]</a></td>
+<td>[% open.${body.id}.new or 0 %]</td>
+<td>[% (open.${body.id}.older or 0) + (open.${body.id}.unknown or 0) + (fixed.${body.id}.new or 0) + (fixed.${body.id}.old or 0) %]</td>
 </tr>
+
 [% END %]
 </table>
 

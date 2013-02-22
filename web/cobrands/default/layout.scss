@@ -9,31 +9,13 @@ and similar.
 */
 
 body {
-    background: #6688ff;
+    background: $bluey;
 }
 
-#front-main {
-    color: $primary_text;
-    background: $primary;
-    // layout sets this because base has it slightly lighter
-    h2 {
-        color: $primary_text;
-    }
-    a#geolocate_link {
-        color: $primary_text;
-    }
-}
-
-.nav-wrapper {
-    .nav-wrapper-2 {
-        border-top: 4px solid $primary;
-        @include border-image(none);
-    }
-}
 body.mappage {
     .nav-wrapper {
         .nav-wrapper-2 {
-            background: $contrast1;
+            background: $bluey;
         }
     }
 }
@@ -51,9 +33,6 @@ body.mappage {
                     background: $primary;
                 }
             }
-        }
-        &#mysoc-menu {
-            background: $primary;
         }
     }
 }

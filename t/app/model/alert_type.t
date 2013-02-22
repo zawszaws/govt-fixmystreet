@@ -22,6 +22,10 @@ my $user2 =
   ->find_or_create( { email => 'commenter@example.com', name => 'Commenter' } );
 ok $user2, "created comment user";
 
+my $user3 =
+  FixMyStreet::App->model('DB::User')
+  ->find_or_create( { email => 'bystander@example.com', name => 'Bystander' } );
+ok $user3, "created bystander";
 
 my $dt = DateTime->new(
     year   => 2011,
@@ -35,7 +39,7 @@ my $dt = DateTime->new(
 my $report = FixMyStreet::App->model('DB::Problem')->find_or_create(
     {
         postcode           => 'SW1A 1AA',
-        council            => '2504',
+        bodies_str         => '2504',
         areas              => ',105255,11806,11828,2247,2504,',
         category           => 'Other',
         title              => 'Test 2',
@@ -96,6 +100,16 @@ my $alert = FixMyStreet::App->model('DB::Alert')->find_or_create(
     }
 );
 
+my $alert3 = FixMyStreet::App->model('DB::Alert')->find_or_create(
+    {
+        user => $user3,
+        parameter => $report_id,
+        alert_type => 'new_updates',
+        whensubscribed => $dt->ymd . ' ' . $dt->hms,
+        confirmed => 1,
+    }
+);
+
 for my $test (
     {
         state => 'closed',
@@ -115,7 +129,7 @@ for my $test (
 
         my $sent = FixMyStreet::App->model('DB::AlertSent')->search(
             {
-                alert_id => $alert->id,
+                alert_id => [ $alert->id, $alert3->id ],
                 parameter => $comment->id,
             }
         )->delete;
@@ -125,18 +139,25 @@ for my $test (
 
         FixMyStreet::App->model('DB::AlertType')->email_alerts();
 
-        $mech->email_count_is( 1 );
-        my $email = $mech->get_email;
+        $mech->email_count_is( 2 );
+        my @emails = $mech->get_email;
         my $msg = $test->{msg};
-        my $body = $email->body;
+        for my $email (@emails) {
+            my $body = $email->body;
+            my $to = $email->header('To');
 
-        like $body, qr/$msg/, 'email says problem is ' . $test->{state};
-        like $body, qr{report/$report_id}, 'contains problem url';
-        like $body, qr/This is some update text/, 'contains update text';
-        unlike $body, qr/This is other update text/, 'does not contains other update text';
+            like $body, qr/$msg/, 'email says problem is ' . $test->{state};
+            if ($to eq $user->email) {
+                like $body, qr{/M/}, 'contains problem login url';
+            } elsif ($to eq $user3->email) {
+                like $body, qr{/report/$report_id}, 'contains problem url';
+            }
+            like $body, qr/This is some update text/, 'contains update text';
+            unlike $body, qr/This is other update text/, 'does not contains other update text';
 
-        my $comments = $body =~ s/(------)//gs;
-        is $comments, 1, 'only 1 update';
+            my $comments = $body =~ s/(------)//gs;
+            is $comments, 1, 'only 1 update';
+        }
     };
 }
 
@@ -166,7 +187,6 @@ subtest "correct text for title after URL" => sub {
     )->delete;
     FixMyStreet::App->model('DB::AlertType')->email_alerts();
 
-    $mech->email_count_is( 1 );
     my $email = $mech->get_email;
     (my $title = $report->title) =~ s/ /\\s+/;
     my $body = $email->body;
@@ -300,7 +320,6 @@ foreach my $test (
 
         FixMyStreet::App->model('DB::AlertType')->email_alerts();
 
-        $mech->email_count_is( 1 );
         my $email = $mech->get_email;
         my $body = $email->body;
 
@@ -326,7 +345,7 @@ my $ward_alert = FixMyStreet::App->model('DB::Alert')->find_or_create(
 my $report_to_council = FixMyStreet::App->model('DB::Problem')->find_or_create(
     {
         postcode           => 'WS13 6YY',
-        council            => '2434',
+        bodies_str         => '2434',
         areas              => ',105255,11806,11828,2247,2504,7117,',
         category           => 'Other',
         title              => 'council report',
@@ -350,7 +369,7 @@ my $report_to_council = FixMyStreet::App->model('DB::Problem')->find_or_create(
 my $report_to_county_council = FixMyStreet::App->model('DB::Problem')->find_or_create(
     {
         postcode           => 'WS13 6YY',
-        council            => '2240',
+        bodies_str         => '2240',
         areas              => ',105255,11806,11828,2247,2504,7117,',
         category           => 'Other',
         title              => 'county report',
@@ -374,7 +393,7 @@ my $report_to_county_council = FixMyStreet::App->model('DB::Problem')->find_or_c
 my $report_outside_district = FixMyStreet::App->model('DB::Problem')->find_or_create(
     {
         postcode           => 'WS13 6YY',
-        council            => '2221',
+        bodies_str         => '2221',
         areas              => ',105255,11806,11828,2247,2504,7117,',
         category           => 'Other',
         title              => 'outside district report',
@@ -406,7 +425,6 @@ subtest "check alerts from cobrand send main site url for alerts for different c
 
     FixMyStreet::App->model('DB::AlertType')->email_alerts();
 
-    $mech->email_count_is( 1 );
     my $email = $mech->get_email;
     my $body = $email->body;
 
@@ -444,7 +462,6 @@ subtest "check local alerts from cobrand send main site url for alerts for diffe
 
     FixMyStreet::App->model('DB::AlertType')->email_alerts();
 
-    $mech->email_count_is( 1 );
     my $email = $mech->get_email;
     my $body = $email->body;
 

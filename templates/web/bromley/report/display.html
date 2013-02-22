@@ -2,7 +2,7 @@
     PROCESS "report/photo-js.html";
     PROCESS "maps/${map.type}.html";
 
-    problem_title = problem.title _ ' - ' _ loc('Viewing a problem');
+    problem_title = problem.title_safe _ ' - ' _ loc('Viewing a problem');
     INCLUDE 'header.html'
         title = problem_title
         rss = [ loc('Updates to this problem, FixMyStreet'), "/rss/$problem.id" ]
@@ -20,7 +20,7 @@
 
 <div class="shadow-wrap">
     <ul id="key-tools">
-        [% IF c.user_exists AND c.user.council == 'Bromley Council' %]
+        [% IF c.user_exists AND c.user.body == 'Bromley Council' %]
         <li><form method="post" action="/report/delete/[% problem.id %]">
             <input type="submit" class="abuse" value="Remove from site">
         </form></li>
@@ -74,12 +74,14 @@
                 <br><a href="http://www.bromley.gov.uk/report">Report a different issue</a>
             </div>
 
-            [% IF c.user && c.user.belongs_to_council( problem.council ) %]
+            [% IF c.user && c.user.belongs_to_body( problem.bodies_str ) %]
                 <label for="form_state">[% loc( 'State' ) %]</label>
                 <select name="state" id="form_state">
-                [% FOREACH state IN [ ['confirmed', loc('Open')], ['investigating',
-                loc('Investigating')], ['planned', loc('Planned')], ['in progress',
-                loc('In Progress')], ['closed', loc('Closed')], ['fixed', loc('Fixed')] ] %]
+                    [% FOREACH state IN [ ['confirmed', loc('Open')], ['investigating',
+                    loc('Investigating')], ['action scheduled', loc('Action Scheduled')],
+                    ['in progress', loc('In Progress')], ['duplicate', loc('Duplicate')],
+                    ['unable to fix', loc('Unable to fix')], ['not responsible', loc('Not Responsible')],
+                    ['fixed', loc('Fixed')] ] %]
                     <option [% 'selected ' IF state.0 == problem.state %] value="[% state.0 %]">[% state.1 %]</option>
                 [% END %]
                 </select>

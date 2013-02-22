@@ -8,13 +8,16 @@
     padding-bottom: 0;
 }
 
+.nodisplay {
+    display: none;
+}
+
 .mobile-nav-banner {
     position: fixed;
     background: black;
 }
 
 .mobile-sign-in-banner {
-    display: none;
     background: none;
 }
 
@@ -26,7 +29,6 @@
 }
 
 .mobile-info {
-    position: fixed;
     bottom: 0px;
     width: 100%;
     height: 20px;

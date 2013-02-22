@@ -24,7 +24,7 @@ __PACKAGE__->add_columns(
   { data_type => "double precision", is_nullable => 0 },
   "longitude",
   { data_type => "double precision", is_nullable => 0 },
-  "council",
+  "bodies_str",
   { data_type => "text", is_nullable => 1 },
   "areas",
   { data_type => "text", is_nullable => 0 },
@@ -99,7 +99,9 @@ __PACKAGE__->add_columns(
   "external_source_id",
   { data_type => "text", is_nullable => 1 },
   "interest_count",
-  { data_type => "integer", is_nullable => 1 },
+  { data_type => "integer", default_value => 0, is_nullable => 1 },
+  "subcategory",
+  { data_type => "text", is_nullable => 1 },
 );
 __PACKAGE__->set_primary_key("id");
 __PACKAGE__->has_many(
@@ -122,8 +124,8 @@ __PACKAGE__->belongs_to(
 );
 
 
-# Created by DBIx::Class::Schema::Loader v0.07017 @ 2012-08-31 10:25:34
-# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:mudIAiLAUdmK8gGWIPiq6g
+# Created by DBIx::Class::Schema::Loader v0.07017 @ 2012-12-13 15:13:48
+# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:H2P3Og37G569nQdQA1IWaA
 
 # Add fake relationship to stored procedure table
 __PACKAGE__->has_one(
@@ -139,6 +141,7 @@ __PACKAGE__->filter_column(
             my $self = shift;
             my $ser  = shift;
             return undef unless defined $ser;
+            utf8::encode($ser) if utf8::is_utf8($ser);
             my $h = new IO::String($ser);
             return RABX::wire_rd($h);
         },
@@ -159,6 +162,7 @@ __PACKAGE__->filter_column(
             my $self = shift;
             my $ser  = shift;
             return undef unless defined $ser;
+            utf8::encode($ser) if utf8::is_utf8($ser);
             my $h = new IO::String($ser);
             return RABX::wire_rd($h);
         },
@@ -194,10 +198,11 @@ HASHREF.
 
 sub open_states {
     my $states = {
-        'confirmed'     => 1,
-        'investigating' => 1,
-        'planned'       => 1,
-        'in progress'   => 1,
+        'confirmed'        => 1,
+        'investigating'    => 1,
+        'in progress'      => 1,
+        'planned'          => 1,
+        'action scheduled' => 1,
     };
 
     return wantarray ? keys %{$states} : $states;
@@ -235,7 +240,11 @@ HASHREF.
 
 sub closed_states {
     my $states = {
-        'closed'          => 1,
+        'closed'                      => 1,
+        'unable to fix'               => 1,
+        'not responsible'             => 1,
+        'duplicate'                   => 1,
+        'internal referral'           => 1,
     };
 
     return wantarray ? keys %{$states} : $states;
@@ -246,61 +255,111 @@ sub closed_states {
 
     @states = FixMyStreet::DB::Problem::visible_states();
 
-Get a list or states that should be visible on the site. If called in
+Get a list of states that should be visible on the site. If called in
 array context then returns an array of names, otherwise returns a
 HASHREF.
 
 =cut
 
+my $visible_states = {
+    'confirmed'                   => 1,
+    'investigating'               => 1,
+    'in progress'                 => 1,
+    'planned'                     => 1,
+    'action scheduled'            => 1,
+    'fixed'                       => 1,
+    'fixed - council'             => 1,
+    'fixed - user'                => 1,
+    'unable to fix'               => 1,
+    'not responsible'             => 1,
+    'duplicate'                   => 1,
+    'closed'                      => 1,
+    'internal referral'           => 1,
+};
 sub visible_states {
+    return wantarray ? keys %{$visible_states} : $visible_states;
+}
+sub visible_states_add_unconfirmed {
+    $visible_states->{unconfirmed} = 1;
+}
+
+=head2
+
+    @states = FixMyStreet::DB::Problem::all_states();
+
+Get a list of all states that a problem can have. If called in
+array context then returns an array of names, otherwise returns a
+HASHREF.
+
+=cut
+
+sub all_states {
     my $states = {
-        'confirmed'       => 1,
-        'planned'         => 1,
-        'investigating'   => 1,
-        'in progress'     => 1,
-        'fixed'           => 1,
-        'fixed - council' => 1,
-        'fixed - user'    => 1,
-        'closed'          => 1,
+        'hidden'                      => 1,
+        'partial'                     => 1,
+        'unconfirmed'                 => 1,
+        'confirmed'                   => 1,
+        'investigating'               => 1,
+        'in progress'                 => 1,
+        'planned'                     => 1,
+        'action scheduled'            => 1,
+        'fixed'                       => 1,
+        'fixed - council'             => 1,
+        'fixed - user'                => 1,
+        'unable to fix'               => 1,
+        'not responsible'             => 1,
+        'duplicate'                   => 1,
+        'closed'                      => 1,
+        'internal referral'           => 1,
     };
 
     return wantarray ? keys %{$states} : $states;
 }
 
+=head2
+
+    @states = FixMyStreet::DB::Problem::council_states();
+
+Get a list of states that are availble to council users. If called in
+array context then returns an array of names, otherwise returns a
+HASHREF.
+
+=cut
+sub council_states {
+    my $states = {
+        'confirmed'                   => 1,
+        'investigating'               => 1,
+        'action scheduled'            => 1,
+        'in progress'                 => 1,
+        'fixed - council'             => 1,
+        'unable to fix'               => 1,
+        'not responsible'             => 1,
+        'duplicate'                   => 1,
+        'internal referral'           => 1,
+    };
+
+    return wantarray ? keys %{$states} : $states;
+}
 
 my $tz = DateTime::TimeZone->new( name => "local" );
 
-sub confirmed_local {
-    my $self = shift;
+my $tz_f;
+$tz_f = DateTime::TimeZone->new( name => FixMyStreet->config('TIME_ZONE') )
+    if FixMyStreet->config('TIME_ZONE');
 
-    return $self->confirmed
-      ? $self->confirmed->set_time_zone($tz)
-      : $self->confirmed;
-}
+my $stz = sub {
+    my ( $orig, $self ) = ( shift, shift );
+    my $s = $self->$orig(@_);
+    return $s unless $s && UNIVERSAL::isa($s, "DateTime");
+    $s->set_time_zone($tz);
+    $s->set_time_zone($tz_f) if $tz_f;
+    return $s;
+};
 
-sub created_local {
-    my $self = shift;
-
-    return $self->created
-      ? $self->created->set_time_zone($tz)
-      : $self->created;
-}
-
-sub whensent_local {
-    my $self = shift;
-
-    return $self->whensent
-      ? $self->whensent->set_time_zone($tz)
-      : $self->whensent;
-}
-
-sub lastupdate_local {
-    my $self = shift;
-
-    return $self->lastupdate
-      ? $self->lastupdate->set_time_zone($tz)
-      : $self->lastupdate;
-}
+around created => $stz;
+around confirmed => $stz;
+around whensent => $stz;
+around lastupdate => $stz;
 
 around service => sub {
     my ( $orig, $self ) = ( shift, shift );
@@ -308,6 +367,12 @@ around service => sub {
     $s =~ s/_/ /g;
     return $s;
 };
+
+sub title_safe {
+    my $self = shift;
+    return _('Awaiting moderation') if $self->cobrand eq 'zurich' && $self->state eq 'unconfirmed';
+    return $self->title;
+}
 
 =head2 check_for_errors
 
@@ -333,9 +398,9 @@ sub check_for_errors {
     $errors{detail} = _('Please enter some details')
       unless $self->detail =~ m/\S/;
 
-    $errors{council} = _('No council selected')
-      unless $self->council
-          && $self->council =~ m/^(?:-1|[\d,]+(?:\|[\d,]+)?)$/;
+    $errors{bodies} = _('No council selected')
+      unless $self->bodies_str
+          && $self->bodies_str =~ m/^(?:-1|[\d,]+(?:\|[\d,]+)?)$/;
 
     if ( !$self->name || $self->name !~ m/\S/ ) {
         $errors{name} = _('Please enter your name');
@@ -346,7 +411,7 @@ sub check_for_errors {
     {
         $errors{name} = _(
 'Please enter your full name, councils need this information – if you do not wish your name to be shown on the site, untick the box below'
-        );
+        ) unless $self->cobrand eq 'emptyhomes';
     }
 
     if (   $self->category
@@ -360,6 +425,11 @@ sub check_for_errors {
     {
         $errors{category} = _('Please choose a property type');
         $self->category(undef);
+    }
+
+    if ( $self->bodies_str && $self->detail &&
+        $self->bodies_str eq '2482' && length($self->detail) > 2000 ) {
+        $errors{detail} = _('Reports are limited to 2000 characters in length. Please shorten your report');
     }
 
     return \%errors;
@@ -388,18 +458,26 @@ sub confirm {
     return 1;
 }
 
-=head2 councils
+sub bodies_str_ids {
+    my $self = shift;
+    return unless $self->bodies_str;
+    (my $bodies = $self->bodies_str) =~ s/\|.*$//;
+    my @bodies = split( /,/, $bodies );
+    return \@bodies;
+}
 
-Returns an arrayref of councils to which a report was sent.
+=head2 bodies
+
+Returns an arrayref of bodies to which a report was sent.
 
 =cut
 
-sub councils {
+sub bodies($) {
     my $self = shift;
-    return [] unless $self->council;
-    (my $council = $self->council) =~ s/\|.*$//;
-    my @council = split( /,/, $council );
-    return \@council;
+    return {} unless $self->bodies_str;
+    my $bodies = $self->bodies_str_ids;
+    my @bodies = FixMyStreet::App->model('DB::Body')->search({ id => $bodies })->all;
+    return { map { $_->id => $_ } @bodies };
 }
 
 =head2 url
@@ -483,8 +561,7 @@ meta data about the report.
 sub meta_line {
     my ( $problem, $c ) = @_;
 
-    my $date_time =
-      Utils::prettify_epoch( $problem->confirmed_local->epoch );
+    my $date_time = Utils::prettify_dt( $problem->confirmed );
     my $meta = '';
 
     # FIXME Should be in cobrand
@@ -492,11 +569,7 @@ sub meta_line {
 
         my $category = _($problem->category);
         utf8::decode($category);
-        if ($problem->anonymous) {
-            $meta = sprintf(_('%s, reported anonymously at %s'), $category, $date_time);
-        } else {
-            $meta = sprintf(_('%s, reported by %s at %s'), $category, $problem->name, $date_time);
-        }
+        $meta = sprintf(_('%s, reported at %s'), $category, $date_time);
 
     } else {
 
@@ -546,9 +619,6 @@ sub meta_line {
 
     }
 
-    $meta .= '; ' . _('the map was not used so pin location may be inaccurate')
-        unless $problem->used_map;
-
     return $meta;
 }
 
@@ -556,21 +626,22 @@ sub body {
     my ( $problem, $c ) = @_;
     my $body;
     if ($problem->external_body) {
-        $body = $problem->external_body;
+        if ($problem->cobrand eq 'zurich') {
+            $body = $c->model('DB::Body')->find({ id => $problem->external_body });
+        } else {
+            $body = $problem->external_body;
+        }
     } else {
-        my $councils = $problem->councils;
-        my $areas_info = mySociety::MaPit::call('areas', $councils);
+        my $bodies = $problem->bodies;
         $body = join( _(' and '),
             map {
-                my $name = $areas_info->{$_}->{name};
+                my $name = $_->name;
                 if (mySociety::Config::get('AREA_LINKS_FROM_PROBLEMS')) {
-                    '<a href="'
-                    . $c->uri_for( '/reports/' . $c->cobrand->short_name( $areas_info->{$_} ) )
-                    . '">' . $name . '</a>';
+                    '<a href="' . $_->url($c) . '">' . $name . '</a>';
                 } else {
                     $name;
                 }
-            } @$councils
+            } values %$bodies
         );
     }
     return $body;
@@ -584,7 +655,8 @@ sub body {
 #     Note:   this only makes sense when called on a problem that has been sent!
 sub can_display_external_id {
     my $self = shift;
-    if ($self->external_id && $self->send_method_used && $self->send_method_used eq 'barnet') {
+    if ($self->external_id && $self->send_method_used && 
+        ($self->send_method_used eq 'barnet' || $self->bodies_str =~ /2237/)) {
         return 1;
     }
     return 0;    
@@ -604,11 +676,11 @@ sub processed_summary_string {
     my ( $problem, $c ) = @_;
     my ($duration_clause, $external_ref_clause);
     if ($problem->whensent) {
-        $duration_clause = $problem->duration_string($c)
+        $duration_clause = $problem->duration_string($c);
     }
     if ($problem->can_display_external_id) {
         if ($duration_clause) {
-            $external_ref_clause = sprintf(_('their ref:&nbsp;%s'), $problem->external_id);
+            $external_ref_clause = sprintf(_('council ref:&nbsp;%s'), $problem->external_id);
         } else {
             $external_ref_clause = sprintf(_('%s ref:&nbsp;%s'), $problem->external_body, $problem->external_id);
         }
@@ -624,8 +696,16 @@ sub duration_string {
     my ( $problem, $c ) = @_;
     my $body = $problem->body( $c );
     return sprintf(_('Sent to %s %s later'), $body,
-        Utils::prettify_duration($problem->whensent_local->epoch - $problem->confirmed_local->epoch, 'minute')
+        Utils::prettify_duration($problem->whensent->epoch - $problem->confirmed->epoch, 'minute')
     );
+}
+
+sub local_coords {
+    my $self = shift;
+    if ($self->cobrand eq 'zurich') {
+        my ($x, $y) = Geo::Coordinates::CH1903::from_latlon($self->latitude, $self->longitude);
+        return ( int($x+0.5), int($y+0.5) );
+    }
 }
 
 =head2 update_from_open311_service_request
@@ -719,6 +799,29 @@ sub update_send_failed {
         send_fail_timestamp => \'ms_current_timestamp()',
         send_fail_reason => $msg
     } );
+}
+
+sub as_hashref {
+    my $self = shift;
+    my $c    = shift;
+
+    return {
+        id        => $self->id,
+        title     => $self->title,
+        category  => $self->category,
+        detail    => $self->detail,
+        latitude  => $self->latitude,
+        longitude => $self->longitude,
+        postcode  => $self->postcode,
+        state     => $self->state,
+        state_t   => _( $self->state ),
+        used_map  => $self->used_map,
+        is_fixed  => $self->fixed_states->{ $self->state } ? 1 : 0,
+        photo     => $self->get_photo_params,
+        meta      => $self->confirmed ? $self->meta_line( $c ) : '',
+        confirmed_pp => $self->confirmed ? $c->cobrand->prettify_dt( $self->confirmed ): '',
+        created_pp => $c->cobrand->prettify_dt( $self->created ),
+    };
 }
 
 # we need the inline_constructor bit as we don't inherit from Moose

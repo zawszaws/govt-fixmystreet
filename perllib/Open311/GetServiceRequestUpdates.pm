@@ -5,17 +5,19 @@ use Open311;
 use FixMyStreet::App;
 use DateTime::Format::W3CDTF;
 
-has council_list => ( is => 'ro' );
 has system_user => ( is => 'rw' );
 has start_date => ( is => 'ro', default => undef );
 has end_date => ( is => 'ro', default => undef );
 has suppress_alerts => ( is => 'rw', default => 0 );
 has verbose => ( is => 'ro', default => 0 );
 
+Readonly::Scalar my $AREA_ID_BROMLEY     => 2482;
+Readonly::Scalar my $AREA_ID_OXFORDSHIRE => 2237;
+
 sub fetch {
     my $self = shift;
 
-    my $councils = FixMyStreet::App->model('DB::Open311Conf')->search(
+    my $bodies = FixMyStreet::App->model('DB::Body')->search(
         {
             send_method     => 'Open311',
             send_comments   => 1,
@@ -24,22 +26,34 @@ sub fetch {
         }
     );
 
-    while ( my $council = $councils->next ) {
+    while ( my $body = $bodies->next ) {
 
         my $o = Open311->new(
-            endpoint     => $council->endpoint,
-            api_key      => $council->api_key,
-            jurisdiction => $council->jurisdiction,
+            endpoint     => $body->endpoint,
+            api_key      => $body->api_key,
+            jurisdiction => $body->jurisdiction,
         );
 
-        $self->suppress_alerts( $council->suppress_alerts );
-        $self->system_user( $council->comment_user );
-        $self->update_comments( $o, { areaid => $council->area_id }, );
+        # custom endpoint URLs because these councils have non-standard paths
+        if ( $body->areas->{$AREA_ID_BROMLEY} ) {
+            my $endpoints = $o->endpoints;
+            $endpoints->{update} = 'update.xml';
+            $endpoints->{service_request_updates} = 'update.xml';
+            $o->endpoints( $endpoints );
+        } elsif ( $body->areas->{$AREA_ID_OXFORDSHIRE} ) {
+            my $endpoints = $o->endpoints;
+            $endpoints->{service_request_updates} = 'open311_service_request_update.cgi';
+            $o->endpoints( $endpoints );
+        }
+
+        $self->suppress_alerts( $body->suppress_alerts );
+        $self->system_user( $body->comment_user );
+        $self->update_comments( $o, { areas => $body->areas }, );
     }
 }
 
 sub update_comments {
-    my ( $self, $open311, $council_details ) = @_;
+    my ( $self, $open311, $body_details ) = @_;
 
     my @args = ();
 
@@ -48,12 +62,20 @@ sub update_comments {
 
         push @args, $self->start_date;
         push @args, $self->end_date;
+    # default to asking for last 2 hours worth if not Bromley
+    } elsif ( ! $body_details->{areas}->{$AREA_ID_BROMLEY} ) {
+        my $end_dt = DateTime->now();
+        my $start_dt = $end_dt->clone;
+        $start_dt->add( hours => -2 );
+
+        push @args, DateTime::Format::W3CDTF->format_datetime( $start_dt );
+        push @args, DateTime::Format::W3CDTF->format_datetime( $end_dt );
     }
 
     my $requests = $open311->get_service_request_updates( @args );
 
     unless ( $open311->success ) {
-        warn "Failed to fetch ServiceRequest Updates: " . $open311->error
+        warn "Failed to fetch ServiceRequest Updates for " . join(",", keys %{$body_details->{areas}}) . ":\n" . $open311->error
             if $self->verbose;
         return 0;
     }
@@ -65,12 +87,13 @@ sub update_comments {
         # what problem it belongs to so just skip
         next unless $request_id;
 
-        my $problem =
-          FixMyStreet::App->model('DB::Problem')
-          ->search( {
-                  external_id => $request_id,
-                  council     => { like => '%' . $council_details->{areaid} . '%' },
-          } );
+        my $problem;
+        my $criteria = {
+            external_id => $request_id,
+            # XXX This assumes that areas will actually only be one area.
+            bodies_str => { like => '%' . join(",", keys %{$body_details->{areas}}) . '%' },
+        };
+        $problem = FixMyStreet::App->model('DB::Problem')->search( $criteria );
 
         if (my $p = $problem->first) {
             my $c = $p->comments->search( { external_id => $request->{update_id} } );
@@ -97,13 +120,15 @@ sub update_comments {
                 # if the comment is older than the last update
                 # do not change the status of the problem as it's
                 # tricky to determine the right thing to do.
-                if ( $comment->created_local > $p->lastupdate_local ) {
-                    if ( $p->is_open and lc($request->{status}) eq 'closed' ) {
-                        $p->state( 'fixed - council' );
-                        $comment->problem_state( 'fixed - council' );
-                    } elsif ( ( $p->is_closed || $p->is_fixed ) and lc($request->{status}) eq 'open' ) {
-                        $p->state( 'confirmed' );
-                        $comment->problem_state( 'confirmed' );
+                if ( $comment->created > $p->lastupdate ) {
+                    my $state = $self->map_state( $request->{status} );
+
+                    # don't update state unless it's an allowed state and it's
+                    # actually changing the state of the problem
+                    if ( FixMyStreet::DB::Result::Problem->council_states()->{$state} && $p->state ne $state &&
+                        !( $p->is_fixed && FixMyStreet::DB::Result::Problem->fixed_states()->{$state} ) ) {
+                        $p->state($state);
+                        $comment->problem_state($state);
                     }
                 }
 
@@ -129,6 +154,24 @@ sub update_comments {
     }
 
     return 1;
+}
+
+sub map_state {
+    my $self           = shift;
+    my $incoming_state = shift;
+
+    $incoming_state = lc($incoming_state);
+    $incoming_state =~ s/_/ /g;
+
+    my %state_map = (
+        fixed                         => 'fixed - council',
+        'not councils responsibility' => 'not responsible',
+        'no further action'           => 'unable to fix',
+        open                          => 'confirmed',
+        closed                        => 'fixed - council'
+    );
+
+    return $state_map{$incoming_state} || $incoming_state;
 }
 
 1;

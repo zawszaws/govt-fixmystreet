@@ -5,6 +5,7 @@ use namespace::autoclean;
 BEGIN {extends 'Catalyst::Controller'; }
 
 use Encode;
+use FixMyStreet::Geocode;
 
 =head1 NAME
 
@@ -49,6 +50,8 @@ sub determine_location_from_coords : Private {
 
 User has searched for a location - try to find it for them.
 
+Return -1 if nothing provided.
+
 If one match is found returns true and lat/lng is set.
 
 If several possible matches are found puts an array onto stash so that user can be prompted to pick one and returns false.
@@ -61,8 +64,21 @@ sub determine_location_from_pc : Private {
     my ( $self, $c, $pc ) = @_;
 
     # check for something to search
-    $pc ||= $c->req->param('pc') || return;
+    $pc ||= $c->req->param('pc') || return -1;
     $c->stash->{pc} = $pc;    # for template
+
+    if ( $pc =~ /^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/ ) {
+        $c->stash->{latitude}  = $1;
+        $c->stash->{longitude} = $2;
+        return $c->forward( 'check_location' );
+    }
+    if ( $c->cobrand->country eq 'GB' && $pc =~ /^([A-Z])([A-Z])([\d\s]{4,})$/i) {
+        if (my $convert = gridref_to_latlon( $1, $2, $3 )) {
+            $c->stash->{latitude}  = $convert->{latitude};
+            $c->stash->{longitude} = $convert->{longitude};
+            return $c->forward( 'check_location' );
+        }
+    }
 
     my ( $latitude, $longitude, $error ) =
         FixMyStreet::Geocode::lookup( $pc, $c );
@@ -112,6 +128,36 @@ sub check_location : Private {
     }
 
     return 1;
+}
+
+# Utility function for if someone (rarely) enters a grid reference
+sub gridref_to_latlon {
+    my ( $a, $b, $num ) = @_;
+    $a = ord(uc $a) - 65; $a-- if $a > 7;
+    $b = ord(uc $b) - 65; $b-- if $b > 7;
+    my $e = (($a-2)%5)*5 + $b%5;
+    my $n = 19 - int($a/5)*5 - int($b/5);
+
+    $num =~ s/\s+//g;
+    my $l = length($num);
+    return if $l % 2 or $l > 10;
+
+    $l /= 2;
+    $e .= substr($num, 0, $l);
+    $n .= substr($num, $l);
+
+    if ( $l < 5 ) {
+        $e .= 5;
+        $n .= 5;
+        $e .= 0 x (4-$l);
+        $n .= 0 x (4-$l);
+    }
+
+    my ( $lat, $lon ) = Utils::convert_en_to_latlon( $e, $n );
+    return {
+        latitude => $lat,
+        longitude => $lon,
+    };
 }
 
 =head1 AUTHOR

@@ -3,6 +3,7 @@ use Moose;
 use namespace::autoclean;
 
 use Catalyst::Runtime 5.80;
+use DateTime;
 use FixMyStreet;
 use FixMyStreet::Cobrand;
 use Memcached;
@@ -188,6 +189,14 @@ sub setup_request {
         mySociety::MaPit::configure( "http://$host/fakemapit/" );
     }
 
+    # XXX Put in cobrand / do properly
+    if ($c->cobrand->moniker eq 'zurich') {
+        FixMyStreet::DB::Result::Problem->visible_states_add_unconfirmed();
+        DateTime->DefaultLocale( 'de_CH' );
+    } else {
+        DateTime->DefaultLocale( 'en_US' );
+    }
+
     return $c;
 }
 
@@ -274,9 +283,8 @@ sub send_email {
     my $template           = shift;
     my $extra_stash_values = shift || {};
 
-    my $sender = $c->cobrand->contact_email;
+    my $sender = $c->config->{DO_NOT_REPLY_EMAIL};
     my $sender_name = $c->cobrand->contact_name;
-    $sender =~ s/team/fms-DO-NOT-REPLY/;
 
     # create the vars to pass to the email template
     my $vars = {
@@ -307,6 +315,7 @@ sub send_email {
         {
             _template_ => $email->body,    # will get line wrapped
             _parameters_ => {},
+            _line_indent => $c->cobrand->email_indent,
             $email->header_pairs
         }
     ) };
@@ -435,18 +444,29 @@ Hashref contains height, width and url keys.
 
 sub get_photo_params {
     my ($self, $key) = @_;
-    $key = ($key eq 'id') ? '' : "/$key";
 
     return {} unless $self->photo;
 
+    $key = ($key eq 'id') ? '' : "/$key";
+
+    my $pre = "/photo$key/" . $self->id;
+    my $post = '.jpeg';
     my $photo = {};
+
     if (length($self->photo) == 40) {
-        $photo->{url_full} = '/photo' . $key . '/' . $self->id . '.full.jpeg';
+        $post .= '?' . $self->photo;
+        $photo->{url_full} = "$pre.full$post";
+        # XXX Can't use size here because {url} (currently 250px height) may be
+        # being used, but at this point it doesn't yet exist to find the width
+        # $str = FixMyStreet->config('UPLOAD_DIR') . $self->photo . '.jpeg';
     } else {
-        ( $photo->{width}, $photo->{height} ) =
-          Image::Size::imgsize( \$self->photo );
+        my $str = \$self->photo;
+        ( $photo->{width}, $photo->{height} ) = Image::Size::imgsize( $str );
     }
-    $photo->{url} = '/photo' . $key . '/' . $self->id . '.jpeg';
+
+    $photo->{url} = "$pre$post";
+    $photo->{url_tn} = "$pre.tn$post";
+    $photo->{url_fp} = "$pre.fp$post";
 
     return $photo;
 }

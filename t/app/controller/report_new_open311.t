@@ -7,12 +7,12 @@ use Web::Scraper;
 
 my $mech = FixMyStreet::TestMech->new;
 
-my $open311Conf = FixMyStreet::App->model('DB::Open311Conf')->find_or_create( {
-        area_id => 2651,
-        endpoint => 'http://example.com/open311',
-        jurisdiction => 'mySociety',
-        api_key => 'apikey',
-} );
+my $body = $mech->create_body_ok(2651, 'City of Edinburgh Council');
+$body->update({
+    endpoint => 'http://example.com/open311',
+    jurisdiction => 'mySociety',
+    api_key => 'apikey',
+});
 
 my %contact_params = (
     confirmed => 1,
@@ -24,18 +24,18 @@ my %contact_params = (
 # Let's make some contacts to send things to!
 my $contact1 = FixMyStreet::App->model('DB::Contact')->find_or_create( {
     %contact_params,
-    area_id => 2651, # Edinburgh
+    body_id => 2651, # Edinburgh
     category => 'Street lighting',
     email => '100',
     extra => [ { description => 'Lamppost number', code => 'number', required => 'True' },
                { description => 'Lamppost type', code => 'type', required => 'False', values =>
-                   { value => { Yellow => { key => 'modern' }, 'Gas' => { key => 'old' } } }
+                   { value => [ { name => ['Gas'], key => ['old'] }, { name => [ 'Yellow' ], key => [ 'modern' ] } ] }
                } 
              ],
 } );
 my $contact2 = FixMyStreet::App->model('DB::Contact')->find_or_create( {
     %contact_params,
-    area_id => 2651, # Edinburgh
+    body_id => 2651, # Edinburgh
     category => 'Graffiti Removal',
     email => '101',
 } );

@@ -32,7 +32,7 @@ my $dt = DateTime->now();
 my $report = FixMyStreet::App->model('DB::Problem')->find_or_create(
     {
         postcode           => 'SW1A 1AA',
-        council            => '2504',
+        bodies_str         => '2504',
         areas              => ',105255,11806,11828,2247,2504,',
         category           => 'Other',
         title              => 'Test 2',
@@ -71,7 +71,23 @@ for my $test (
         colour => 'yellow',
     },
     {
+        state => 'duplicate', 
+        colour => 'yellow',
+    },
+    {
+        state => 'unable to fix', 
+        colour => 'yellow',
+    },
+    {
+        state => 'not responsible', 
+        colour => 'yellow',
+    },
+    {
         state => 'investigating', 
+        colour => 'yellow',
+    },
+    {
+        state => 'action scheduled', 
         colour => 'yellow',
     },
     {

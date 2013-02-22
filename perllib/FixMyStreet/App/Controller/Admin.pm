@@ -4,8 +4,9 @@ use namespace::autoclean;
 
 BEGIN { extends 'Catalyst::Controller'; }
 
+use Path::Class;
 use POSIX qw(strftime strcoll);
-use Digest::MD5 qw(md5_hex);
+use Digest::SHA1 qw(sha1_hex);
 use mySociety::EmailUtil qw(is_valid_email);
 use if !$ENV{TRAVIS}, 'Image::Magick';
 
@@ -23,17 +24,31 @@ Admin pages
 
 =cut
 
+sub begin : Private {
+    my ( $self, $c ) = @_;
+
+    $c->uri_disposition('relative');
+
+    if ( $c->cobrand->moniker eq 'zurich' || $c->cobrand->moniker eq 'seesomething' ) {
+        $c->detach( '/auth/redirect' ) unless $c->user_exists;
+        $c->detach( '/auth/redirect' ) unless $c->user->from_body;
+    }
+    if ( $c->cobrand->moniker eq 'zurich' ) {
+        $c->cobrand->admin_type();
+    }
+}
+
+sub auto : Private {
+    my ( $self, $c ) = @_;
+
+    $c->forward('check_page_allowed');
+}
+
 =head2 summary
 
 Redirect to index page. There to make the allowed pages stuff neater
 
 =cut
-
-sub begin : Private {
-    my ( $self, $c ) = @_;
-
-    $c->uri_disposition('relative');
-}
 
 sub summary : Path( 'summary' ) : Args(0) {
     my ( $self, $c ) = @_;
@@ -49,7 +64,9 @@ Displays some summary information for the requests.
 sub index : Path : Args(0) {
     my ( $self, $c ) = @_;
 
-    $c->forward('check_page_allowed');
+    if ($c->cobrand->moniker eq 'zurich' && $c->stash->{admin_type} ne 'super') {
+        return $c->cobrand->admin();
+    }
 
     my $site_restriction = $c->cobrand->site_restriction();
 
@@ -60,11 +77,9 @@ sub index : Path : Args(0) {
 
     %prob_counts =
       map { $_ => $prob_counts{$_} || 0 }
-      ('confirmed', 'investigating', 'in progress', 'closed', 'fixed - council',
-          'fixed - user', 'fixed', 'unconfirmed', 'hidden',
-          'partial', 'planned');
+        ( FixMyStreet::DB::Result::Problem->all_states() );
     $c->stash->{problems} = \%prob_counts;
-    $c->stash->{total_problems_live} += $prob_counts{$_} 
+    $c->stash->{total_problems_live} += $prob_counts{$_} ? $prob_counts{$_} : 0
         for ( FixMyStreet::DB::Result::Problem->visible_states() );
     $c->stash->{total_problems_users} = $c->cobrand->problems->unique_users;
 
@@ -121,8 +136,6 @@ sub index : Path : Args(0) {
 sub timeline : Path( 'timeline' ) : Args(0) {
     my ($self, $c) = @_;
 
-    $c->forward('check_page_allowed');
-
     my $site_restriction = $c->cobrand->site_restriction();
     my %time;
 
@@ -132,34 +145,34 @@ sub timeline : Path( 'timeline' ) : Args(0) {
     my $probs = $c->cobrand->problems->timeline;
 
     foreach ($probs->all) {
-        push @{$time{$_->created->epoch}}, { type => 'problemCreated', date => $_->created_local, obj => $_ };
-        push @{$time{$_->confirmed->epoch}}, { type => 'problemConfirmed', date => $_->confirmed_local, obj => $_ } if $_->confirmed;
-        push @{$time{$_->whensent->epoch}}, { type => 'problemSent', date => $_->whensent_local, obj => $_ } if $_->whensent;
+        push @{$time{$_->created->epoch}}, { type => 'problemCreated', date => $_->created, obj => $_ };
+        push @{$time{$_->confirmed->epoch}}, { type => 'problemConfirmed', date => $_->confirmed, obj => $_ } if $_->confirmed;
+        push @{$time{$_->whensent->epoch}}, { type => 'problemSent', date => $_->whensent, obj => $_ } if $_->whensent;
     }
 
     my $questionnaires = $c->model('DB::Questionnaire')->timeline( $c->cobrand->restriction );
 
     foreach ($questionnaires->all) {
-        push @{$time{$_->whensent->epoch}}, { type => 'quesSent', date => $_->whensent_local, obj => $_ };
-        push @{$time{$_->whenanswered->epoch}}, { type => 'quesAnswered', date => $_->whenanswered_local, obj => $_ } if $_->whenanswered;
+        push @{$time{$_->whensent->epoch}}, { type => 'quesSent', date => $_->whensent, obj => $_ };
+        push @{$time{$_->whenanswered->epoch}}, { type => 'quesAnswered', date => $_->whenanswered, obj => $_ } if $_->whenanswered;
     }
 
     my $updates = $c->model('DB::Comment')->timeline( $site_restriction );
 
     foreach ($updates->all) {
-        push @{$time{$_->created->epoch}}, { type => 'update', date => $_->created_local, obj => $_} ;
+        push @{$time{$_->created->epoch}}, { type => 'update', date => $_->created, obj => $_} ;
     }
 
     my $alerts = $c->model('DB::Alert')->timeline_created( $c->cobrand->restriction );
 
     foreach ($alerts->all) {
-        push @{$time{$_->whensubscribed->epoch}}, { type => 'alertSub', date => $_->whensubscribed_local, obj => $_ };
+        push @{$time{$_->whensubscribed->epoch}}, { type => 'alertSub', date => $_->whensubscribed, obj => $_ };
     }
 
     $alerts = $c->model('DB::Alert')->timeline_disabled( $c->cobrand->restriction );
 
     foreach ($alerts->all) {
-        push @{$time{$_->whendisabled->epoch}}, { type => 'alertDel', date => $_->whendisabled_local, obj => $_ };
+        push @{$time{$_->whendisabled->epoch}}, { type => 'alertDel', date => $_->whendisabled, obj => $_ };
     }
 
     $c->model('DB')->schema->storage->sql_maker->quote_char( '' );
@@ -171,8 +184,6 @@ sub timeline : Path( 'timeline' ) : Args(0) {
 
 sub questionnaire : Path('questionnaire') : Args(0) {
     my ( $self, $c ) = @_;
-
-    $c->forward('check_page_allowed');
 
     my $questionnaires = $c->model('DB::Questionnaire')->search(
         { whenanswered => { '!=', undef } },
@@ -204,10 +215,10 @@ sub questionnaire : Path('questionnaire') : Args(0) {
     return 1;
 }
 
-sub council_list : Path('council_list') : Args(0) {
+sub bodies : Path('bodies') : Args(0) {
     my ( $self, $c ) = @_;
 
-    $c->forward('check_page_allowed');
+    $c->forward( 'get_token' );
 
     my $edit_activity = $c->model('DB::ContactsHistory')->search(
         undef,
@@ -221,54 +232,74 @@ sub council_list : Path('council_list') : Args(0) {
 
     $c->stash->{edit_activity} = $edit_activity;
 
-    # Not London, as treated separately
-    my $area_types = $c->cobrand->moniker eq 'emptyhomes'
-        ? $c->cobrand->area_types
-        : [ grep { $_ ne 'LBO' } @{ $c->cobrand->area_types } ];
-    my $areas = mySociety::MaPit::call('areas', $area_types);
+    my $posted = $c->req->param('posted') || '';
+    if ( $posted eq 'body' ) {
+        $c->forward('check_token');
 
-    my @councils_ids = sort { strcoll($areas->{$a}->{name}, $areas->{$b}->{name}) } keys %$areas;
-    @councils_ids = $c->cobrand->filter_all_council_ids_list( @councils_ids );
+        my $params = $c->forward('body_params');
+        my $body = $c->model('DB::Body')->create( $params );
+        my $area_ids = $c->req->params->{area_ids};
+        if ($area_ids) {
+            $area_ids = [ $area_ids ] unless ref $area_ids;
+            foreach (@$area_ids) {
+                $c->model('DB::BodyArea')->create( { body => $body, area_id => $_ } );
+            }
+        }
+
+        $c->stash->{updated} = _('New body added');
+    }
+
+    $c->forward( 'fetch_all_bodies' );
+
+    # XXX For fixmystreet.com, need to exclude bodies that are covering London.
+    # But soon, this means just don't have bodies covering London.
 
     my $contacts = $c->model('DB::Contact')->search(
         undef,
         {
-            select => [ 'area_id', { count => 'id' }, { count => \'case when deleted then 1 else null end' },
+            select => [ 'body_id', { count => 'id' }, { count => \'case when deleted then 1 else null end' },
             { count => \'case when confirmed then 1 else null end' } ],
-            as => [qw/area_id c deleted confirmed/],
-            group_by => [ 'area_id' ],
+            as => [qw/body_id c deleted confirmed/],
+            group_by => [ 'body_id' ],
             result_class => 'DBIx::Class::ResultClass::HashRefInflator'
         }
     );
 
-    my %council_info = map { $_->{area_id} => $_ } $contacts->all;
+    my %council_info = map { $_->{body_id} => $_ } $contacts->all;
 
-    my @no_info = grep { !$council_info{$_} } @councils_ids;
-    my @one_plus_deleted = grep { $council_info{$_} && $council_info{$_}->{deleted} } @councils_ids;
-    my @unconfirmeds = grep { $council_info{$_} && !$council_info{$_}->{deleted} && $council_info{$_}->{confirmed} != $council_info{$_}->{c} } @councils_ids;
-    my @all_confirmed = grep { $council_info{$_} && !$council_info{$_}->{deleted} && $council_info{$_}->{confirmed} == $council_info{$_}->{c} } @councils_ids;
-
-    $c->stash->{areas} = $areas;
     $c->stash->{counts} = \%council_info;
-    $c->stash->{no_info} = \@no_info;
-    $c->stash->{one_plus_deleted} = \@one_plus_deleted;
-    $c->stash->{unconfirmeds} = \@unconfirmeds;
-    $c->stash->{all_confirmed} = \@all_confirmed;
+
+    $c->forward( 'body_form_dropdowns' );
 
     return 1;
 }
 
-sub council_contacts : Path('council_contacts') : Args(1) {
-    my ( $self, $c, $area_id ) = @_;
+sub body_form_dropdowns : Private {
+    my ( $self, $c ) = @_;
 
-    $c->forward('check_page_allowed');
+    my $areas;
+    if ($c->cobrand->moniker eq 'zurich') {
+        $areas = mySociety::MaPit::call('areas', 274456);
+    } else {
+        $areas = mySociety::MaPit::call('areas', $c->cobrand->area_types);
+    }
+    $c->stash->{areas} = [ sort { strcoll($a->{name}, $b->{name}) } values %$areas ];
 
-    my $posted = $c->req->param('posted') || '';
-    $c->stash->{area_id} = $area_id;
+    my @methods = map { $_ =~ s/FixMyStreet::SendReport:://; $_ } keys %{ FixMyStreet::SendReport->get_senders };
+    $c->stash->{send_methods} = \@methods;
+}
+
+sub body : Path('body') : Args(1) {
+    my ( $self, $c, $body_id ) = @_;
+
+    $c->stash->{body_id} = $body_id;
 
     $c->forward( 'get_token' );
+    $c->forward( 'lookup_body' );
+    $c->forward( 'fetch_all_bodies' );
+    $c->forward( 'body_form_dropdowns' );
 
-    if ( $posted ) {
+    if ( $c->req->param('posted') ) {
         $c->log->debug( 'posted' );
         $c->forward('update_contacts');
     }
@@ -282,7 +313,7 @@ sub update_contacts : Private {
     my ( $self, $c ) = @_;
 
     my $posted = $c->req->param('posted');
-    my $editor = $c->req->remote_user || _('*unknown*');
+    my $editor = $c->forward('get_user');
 
     if ( $posted eq 'new' ) {
         $c->forward('check_token');
@@ -294,7 +325,7 @@ sub update_contacts : Private {
 
         my $contact = $c->model('DB::Contact')->find_or_new(
             {
-                area_id => $c->stash->{area_id},
+                body_id => $c->stash->{body_id},
                 category => $category,
             }
         );
@@ -328,7 +359,7 @@ sub update_contacts : Private {
 
         my $contacts = $c->model('DB::Contact')->search(
             {
-                area_id => $c->stash->{area_id},
+                body_id => $c->stash->{body_id},
                 category => { -in => \@categories },
             }
         );
@@ -343,67 +374,50 @@ sub update_contacts : Private {
         );
 
         $c->stash->{updated} = _('Values updated');
-    } elsif ( $posted eq 'open311' ) {
+    } elsif ( $posted eq 'body' ) {
         $c->forward('check_token');
 
-        my %params = map { $_ => $c->req->param($_) || '' } qw/open311_id endpoint jurisdiction api_key area_id send_method send_comments suppress_alerts comment_user_id devolved/;
-
-        if ( $params{open311_id} ) {
-            my $conf = $c->model('DB::Open311Conf')->find( { id => $params{open311_id} } );
-
-            $conf->endpoint( $params{endpoint} );
-            $conf->jurisdiction( $params{jurisdiction} );
-            $conf->api_key( $params{api_key} );
-            $conf->send_method( $params{send_method} );
-            $conf->send_comments( $params{send_comments} || 0);
-            $conf->suppress_alerts( $params{suppress_alerts} || 0);
-            $conf->comment_user_id( $params{comment_user_id} || undef );
-            $conf->can_be_devolved( $params{devolved} || 0 );
-
-            $conf->update();
-
-            $c->stash->{updated} = _('Configuration updated');
-        } else {
-            my $conf = $c->model('DB::Open311Conf')->find_or_new( { area_id => $params{area_id} } );
-
-            $conf->endpoint( $params{endpoint} );
-            $conf->jurisdiction( $params{jurisdiction} );
-            $conf->api_key( $params{api_key} );
-            $conf->send_method( $params{send_method} );
-            $conf->send_comments( $params{send_comments} || 0);
-            $conf->suppress_alerts( $params{suppress_alerts} || 0);
-            $conf->comment_user_id( $params{comment_user_id} || undef );
-            $conf->can_be_devolved( $params{devolved} || 0 );
-
-            $conf->insert();
-
-            $c->stash->{updated} = _('Configuration updated - contacts will be generated automatically later');
+        my $params = $c->forward( 'body_params' );
+        $c->stash->{body}->update( $params );
+        my @current = $c->stash->{body}->body_areas->all;
+        my %current = map { $_->area_id => 1 } @current;
+        my $area_ids = $c->req->params->{area_ids};
+        if ($area_ids) {
+            $area_ids = [ $area_ids ] unless ref $area_ids;
+            foreach (@$area_ids) {
+                $c->model('DB::BodyArea')->find_or_create( { body => $c->stash->{body}, area_id => $_ } );
+                delete $current{$_};
+            }
         }
+        # Remove any others
+        $c->stash->{body}->body_areas->search( { area_id => [ keys %current ] } )->delete;
+
+        $c->stash->{updated} = _('Configuration updated - contacts will be generated automatically later');
     }
+}
+
+sub body_params : Private {
+    my ( $self, $c ) = @_;
+
+    my @fields = qw/name endpoint jurisdiction api_key send_method send_comments suppress_alerts send_extended_statuses comment_user_id can_be_devolved parent/;
+    my %defaults = map { $_ => '' } @fields;
+    %defaults = ( %defaults,
+        send_comments => 0,
+        suppress_alerts => 0,
+        comment_user_id => undef,
+        send_extended_statuses => 0,
+        can_be_devolved => 0,
+        parent => undef,
+    );
+    my %params = map { $_ => $c->req->param($_) || $defaults{$_} } @fields;
+    return \%params;
 }
 
 sub display_contacts : Private {
     my ( $self, $c ) = @_;
 
-    $c->forward('setup_council_details');
-
-    my $area_id = $c->stash->{area_id};
-
-    my $contacts = $c->model('DB::Contact')->search(
-        { area_id => $area_id },
-        { order_by => ['category'] }
-    );
-
+    my $contacts = $c->stash->{body}->contacts->search(undef, { order_by => [ 'category' ] } );
     $c->stash->{contacts} = $contacts;
-
-    my @methods = map { $_ =~ s/FixMyStreet::SendReport:://; $_ } keys %{ FixMyStreet::SendReport->get_senders };
-    $c->stash->{send_methods} = \@methods;
-
-    my $open311 = $c->model('DB::Open311Conf')->search(
-        { area_id => $area_id }
-    );
-
-    $c->stash->{open311} = $open311;
 
     if ( $c->req->param('text') && $c->req->param('text') == 1 ) {
         $c->stash->{template} = 'admin/council_contacts.txt';
@@ -414,59 +428,52 @@ sub display_contacts : Private {
     return 1;
 }
 
-sub setup_council_details : Private {
+sub lookup_body : Private {
     my ( $self, $c ) = @_;
 
-    my $area_id = $c->stash->{area_id};
-
-    my $mapit_data = mySociety::MaPit::call('area', $area_id);
-
-    $c->stash->{council_name} = $mapit_data->{name};
-
-    my $example_postcode = mySociety::MaPit::call('area/example_postcode', $area_id);
-
-    if ($example_postcode && ! ref $example_postcode) {
-        $c->stash->{example_pc} = $example_postcode;
+    my $body_id = $c->stash->{body_id};
+    my $body = $c->model('DB::Body')->find($body_id);
+    $c->detach( '/page_error_404_not_found' )
+      unless $body;
+    $c->stash->{body} = $body;
+    
+    if ($body->body_areas->first) {
+        my $example_postcode = mySociety::MaPit::call('area/example_postcode', $body->body_areas->first->area_id);
+        if ($example_postcode && ! ref $example_postcode) {
+            $c->stash->{example_pc} = $example_postcode;
+        }
     }
 
     return 1;
 }
 
-sub council_edit_all : Path('council_edit') {
-    my ( $self, $c, $area_id, @category ) = @_;
+# This is for if the category name contains a '/'
+sub body_edit_all : Path('body_edit') {
+    my ( $self, $c, $body_id, @category ) = @_;
     my $category = join( '/', @category );
-    $c->go( 'council_edit', [ $area_id, $category ] );
+    $c->go( 'body_edit', [ $body_id, $category ] );
 }
 
-sub council_edit : Path('council_edit') : Args(2) {
-    my ( $self, $c, $area_id, $category ) = @_;
+sub body_edit : Path('body_edit') : Args(2) {
+    my ( $self, $c, $body_id, $category ) = @_;
 
-    $c->forward('check_page_allowed');
-
-    $c->stash->{area_id} = $area_id;
+    $c->stash->{body_id} = $body_id;
 
     $c->forward( 'get_token' );
-    $c->forward('setup_council_details');
+    $c->forward( 'lookup_body' );
 
-    my $contact = $c->model('DB::Contact')->search(
-        {
-            area_id => $area_id,
-            category => $category
-        }
-    )->first;
-
+    my $contact = $c->stash->{body}->contacts->search( { category => $category } )->first;
     $c->stash->{contact} = $contact;
 
     my $history = $c->model('DB::ContactsHistory')->search(
         {
-            area_id => $area_id,
+            body_id => $body_id,
             category => $category
         },
         {
             order_by => ['contacts_history_id']
         },
     );
-
     $c->stash->{history} = $history;
 
     my @methods = map { $_ =~ s/FixMyStreet::SendReport:://; $_ } keys %{ FixMyStreet::SendReport->get_senders };
@@ -475,13 +482,30 @@ sub council_edit : Path('council_edit') : Args(2) {
     return 1;
 }
 
-sub search_reports : Path('search_reports') {
+sub reports : Path('reports') {
     my ( $self, $c ) = @_;
 
-    $c->forward('check_page_allowed');
+    my $query = {};
+    if ( $c->cobrand->moniker eq 'zurich' ) {
+        my $type = $c->stash->{admin_type};
+        my $body = $c->stash->{body};
+        if ( $type eq 'dm' ) {
+            my @children = map { $_->id } $body->bodies->all;
+            my @all = (@children, $body->id);
+            $query = { bodies_str => \@all };
+        } elsif ( $type eq 'sdm' ) {
+            $query = { bodies_str => $body->id };
+        }
+    }
+
+    my $order = $c->req->params->{o} || 'created';
+    my $dir = defined $c->req->params->{d} ? $c->req->params->{d} : 1;
+    $c->stash->{order} = $order;
+    $c->stash->{dir} = $dir;
+    $order .= ' desc' if $dir;
 
     if (my $search = $c->req->param('search')) {
-        $c->stash->{searched} = 1;
+        $c->stash->{searched} = $search;
 
         my $site_restriction = $c->cobrand->site_restriction;
 
@@ -498,37 +522,35 @@ sub search_reports : Path('search_reports') {
         $c->model('DB')->schema->storage->sql_maker->quote_char( '"' );
         $c->model('DB')->schema->storage->sql_maker->name_sep( '.' );
 
-        my $query;
         if (is_valid_email($search)) {
-            $query = [
+            $query->{'-or'} = [
                 'user.email' => { ilike => $like_search },
             ];
         } elsif ($search =~ /^id:(\d+)$/) {
-            $query = [
+            $query->{'-or'} = [
                 'me.id' => int($1),
             ];
         } elsif ($search =~ /^area:(\d+)$/) {
-            $query = [
+            $query->{'-or'} = [
                 'me.areas' => { like => "%,$1,%" }
             ];
         } else {
-            $query = [
+            $query->{'-or'} = [
                 'me.id' => $search_n,
                 'user.email' => { ilike => $like_search },
                 'me.name' => { ilike => $like_search },
                 'me.title' => { ilike => $like_search },
                 detail => { ilike => $like_search },
-                council => { like => $like_search },
+                bodies_str => { like => $like_search },
                 cobrand_data => { like => $like_search },
             ];
         }
+
         my $problems = $c->cobrand->problems->search(
-            {
-                -or => $query,
-            },
+            $query,
             {
                 prefetch => 'user',
-                order_by => [\"(state='hidden')",'created']
+                order_by => [ \"(state='hidden')", \$order ]
             }
         );
 
@@ -536,9 +558,6 @@ sub search_reports : Path('search_reports') {
         # query the object in the template as the quoting
         # will have been turned off
         $c->stash->{problems} = [ $problems->all ];
-
-        $c->stash->{edit_council_contacts} = 1
-            if ( grep {$_ eq 'councilcontacts'} keys %{$c->stash->{allowed_pages}});
 
         if (is_valid_email($search)) {
             $query = [
@@ -569,9 +588,9 @@ sub search_reports : Path('search_reports') {
                     -or => $query,
                 },
                 {
-                    -select   => [ 'me.*', qw/problem.council problem.state/ ],
+                    -select   => [ 'me.*', qw/problem.bodies_str problem.state/ ],
                     prefetch => [qw/user problem/],
-                    order_by => [\"(me.state='hidden')",\"(problem.state='hidden')",'me.created']
+                    order_by => [ \"(me.state='hidden')", \"(problem.state='hidden')", 'me.created' ]
                 }
             );
             $c->stash->{updates} = [ $updates->all ];
@@ -579,7 +598,20 @@ sub search_reports : Path('search_reports') {
 
         # Switch quoting back off. See above for explanation of this.
         $c->model('DB')->schema->storage->sql_maker->quote_char( '' );
+    } else {
+
+        my $page = $c->req->params->{p} || 1;
+        my $problems = $c->cobrand->problems->search(
+            $query,
+            { order_by => $order }
+        )->page( $page );
+        $c->stash->{problems} = [ $problems->all ];
+        $c->stash->{pager} = $problems->pager;
     }
+
+    $c->stash->{edit_body_contacts} = 1
+        if ( grep {$_ eq 'body'} keys %{$c->stash->{allowed_pages}});
+
 }
 
 sub report_edit : Path('report_edit') : Args(1) {
@@ -587,11 +619,7 @@ sub report_edit : Path('report_edit') : Args(1) {
 
     my $site_restriction = $c->cobrand->site_restriction;
 
-    my $problem = $c->cobrand->problems->search(
-        {
-            id => $id,
-        }
-    )->first;
+    my $problem = $c->cobrand->problems->search( { id => $id } )->first;
 
     $c->detach( '/page_error_404_not_found' )
       unless $problem;
@@ -599,7 +627,34 @@ sub report_edit : Path('report_edit') : Args(1) {
     $c->stash->{problem} = $problem;
 
     $c->forward('get_token');
-    $c->forward('check_page_allowed');
+
+    if ( $c->cobrand->moniker eq 'zurich' ) {
+        $c->stash->{page} = 'admin';
+        FixMyStreet::Map::display_map(
+            $c,
+            latitude  => $problem->latitude,
+            longitude => $problem->longitude,
+            pins      => $problem->used_map
+            ? [ {
+                latitude  => $problem->latitude,
+                longitude => $problem->longitude,
+                colour    => $c->cobrand->pin_colour($problem),
+                type      => 'big',
+              } ]
+            : [],
+        );
+    }
+
+    if ( $c->req->param('rotate_photo') ) {
+        $c->forward('rotate_photo');
+        return 1;
+    }
+
+    if ( $c->cobrand->moniker eq 'zurich' ) {
+        my $done = $c->cobrand->admin_report_edit();
+        return if $done;
+    }
+
     $c->forward('check_email_for_abuse', [ $problem->user->email ] );
 
     $c->stash->{updates} =
@@ -627,9 +682,6 @@ sub report_edit : Path('report_edit') : Args(1) {
     }
     elsif ( $c->req->param('banuser') ) {
         $c->forward('ban_user');
-    }
-    elsif ( $c->req->param('rotate_photo') ) {
-        $c->forward('rotate_photo');
     }
     elsif ( $c->req->param('submit') ) {
         $c->forward('check_token');
@@ -659,6 +711,7 @@ sub report_edit : Path('report_edit') : Args(1) {
             || $c->req->param('email')  ne $problem->user->email
             || $c->req->param('title')  ne $problem->title
             || $c->req->param('detail') ne $problem->detail
+            || ($c->req->param('body') && $c->req->param('body') ne $problem->bodies_str)
             || $flagged != $problem->flagged
             || $non_public != $problem->non_public )
         {
@@ -668,8 +721,10 @@ sub report_edit : Path('report_edit') : Args(1) {
         $problem->anonymous( $c->req->param('anonymous') );
         $problem->title( $c->req->param('title') );
         $problem->detail( $c->req->param('detail') );
-        $problem->state( $c->req->param('state') );
+        $problem->state( $new_state );
         $problem->name( $c->req->param('name') );
+        $problem->bodies_str( $c->req->param('body') ) if $c->req->param('body');
+
         $problem->flagged( $flagged );
         $problem->non_public( $non_public );
 
@@ -716,31 +771,56 @@ sub report_edit : Path('report_edit') : Args(1) {
     return 1;
 }
 
-sub search_users: Path('search_users') : Args(0) {
+sub users: Path('users') : Args(0) {
     my ( $self, $c ) = @_;
 
-    $c->forward('check_page_allowed');
-
     if (my $search = $c->req->param('search')) {
-        $c->stash->{searched} = 1;
+        $c->stash->{searched} = $search;
 
-        my $search = $c->req->param('search');
         my $isearch = '%' . $search . '%';
-
         my $search_n = 0;
         $search_n = int($search) if $search =~ /^\d+$/;
 
         my $users = $c->model('DB::User')->search(
             {
                 -or => [
-                    email        => { ilike => $isearch },
-                    name         => { ilike => $isearch },
-                    from_council => $search_n,
+                    email => { ilike => $isearch },
+                    name => { ilike => $isearch },
+                    from_body => $search_n,
                 ]
             }
         );
+        my @users = $users->all;
+        my %email2user = map { $_->email => $_ } @users;
+        $c->stash->{users} = [ @users ];
 
-        $c->stash->{users} = [ $users->all ];
+        my $emails = $c->model('DB::Abuse')->search(
+            {
+                email => { ilike => $isearch }
+            }
+        );
+        foreach my $email ($emails->all) {
+            # Slight abuse of the boolean flagged value
+            if ($email2user{$email->email}) {
+                $email2user{$email->email}->flagged( 2 );
+            } else {
+                push @{$c->stash->{users}}, { email => $email->email, flagged => 2 };
+            }
+        }
+
+    } else {
+        $c->forward('get_token');
+        $c->forward('fetch_all_bodies');
+
+        # Admin users by default
+        my $users = $c->model('DB::User')->search(
+            { from_body => { '!=', undef } },
+            { order_by => 'name' }
+        );
+        my @users = $users->all;
+        my %email2user = map { $_->email => $_ } @users;
+        $c->stash->{users} = \@users;
+
     }
 
     return 1;
@@ -761,7 +841,6 @@ sub update_edit : Path('update_edit') : Args(1) {
       unless $update;
 
     $c->forward('get_token');
-    $c->forward('check_page_allowed');
 
     $c->stash->{update} = $update;
 
@@ -816,6 +895,11 @@ sub update_edit : Path('update_edit') : Args(1) {
 
         if ( $new_state eq 'confirmed' and $old_state eq 'unconfirmed' ) {
             $update->confirmed( \'ms_current_timestamp()' );
+            if ( $update->problem_state && $update->created > $update->problem->lastupdate ) {
+                $update->problem->state( $update->problem_state );
+                $update->problem->lastupdate( \'ms_current_timestamp()' );
+                $update->problem->update;
+            }
         }
 
         $update->update;
@@ -847,22 +931,33 @@ sub update_edit : Path('update_edit') : Args(1) {
     return 1;
 }
 
-sub search_abuse : Path('search_abuse') : Args(0) {
+sub user_add : Path('user_edit') : Args(0) {
     my ( $self, $c ) = @_;
 
-    $c->forward('check_page_allowed');
+    $c->stash->{template} = 'admin/user_edit.html';
+    $c->forward('get_token');
+    $c->forward('fetch_all_bodies');
 
-    my $search = $c->req->param('search');
+    return 1 unless $c->req->param('submit');
 
-    if ($search) {
-        my $emails = $c->model('DB::Abuse')->search(
-            {
-                email => { ilike => "\%$search\%" }
-            }
-        );
+    $c->forward('check_token');
 
-        $c->stash->{emails} = [ $emails->all ];
-    }
+    return unless $c->req->param('name') && $c->req->param('email');
+
+    my $user = $c->model('DB::User')->find_or_create( {
+        name => $c->req->param('name'),
+        email => $c->req->param('email'),
+        from_body => $c->req->param('body') || undef,
+        flagged => $c->req->param('flagged') || 0,
+    }, {
+        key => 'users_email_key'
+    } );
+    $c->stash->{user} = $user;
+
+    $c->forward( 'log_edit', [ $user->id, 'user', 'edit' ] );
+
+    $c->stash->{status_message} =
+      '<p><em>' . _('Updated!') . '</em></p>';
 
     return 1;
 }
@@ -870,13 +965,12 @@ sub search_abuse : Path('search_abuse') : Args(0) {
 sub user_edit : Path('user_edit') : Args(1) {
     my ( $self, $c, $id ) = @_;
 
-    $c->forward('check_page_allowed');
     $c->forward('get_token');
 
     my $user = $c->model('DB::User')->find( { id => $id } );
     $c->stash->{user} = $user;
 
-    $c->forward('set_up_council_details');
+    $c->forward('fetch_all_bodies');
 
     if ( $c->req->param('submit') ) {
         $c->forward('check_token');
@@ -885,13 +979,15 @@ sub user_edit : Path('user_edit') : Args(1) {
 
         if ( $user->email ne $c->req->param('email') ||
             $user->name ne $c->req->param('name' ) ||
-            $user->from_council != $c->req->param('council') ) {
+            ($user->from_body && $user->from_body->id ne $c->req->param('body')) ||
+            (!$user->from_body && $c->req->param('body'))
+        ) {
                 $edited = 1;
         }
 
         $user->name( $c->req->param('name') );
         $user->email( $c->req->param('email') );
-        $user->from_council( $c->req->param('council') || undef );
+        $user->from_body( $c->req->param('body') || undef );
         $user->flagged( $c->req->param('flagged') || 0 );
         $user->update;
 
@@ -906,10 +1002,8 @@ sub user_edit : Path('user_edit') : Args(1) {
     return 1;
 }
 
-sub list_flagged : Path('list_flagged') : Args(0) {
+sub flagged : Path('flagged') : Args(0) {
     my ( $self, $c ) = @_;
-
-    $c->forward('check_page_allowed');
 
     my $problems = $c->model('DB::Problem')->search( { flagged => 1 } );
 
@@ -927,9 +1021,11 @@ sub list_flagged : Path('list_flagged') : Args(0) {
 sub stats : Path('stats') : Args(0) {
     my ( $self, $c ) = @_;
 
-    $c->forward('check_page_allowed');
+    $c->forward('fetch_all_bodies');
 
-    $c->forward('set_up_council_details');
+    if ( $c->cobrand->moniker eq 'seesomething' || $c->cobrand->moniker eq 'zurich' ) {
+        return $c->cobrand->admin_stats();
+    }
 
     if ( $c->req->param('getcounts') ) {
 
@@ -965,11 +1061,11 @@ sub stats : Path('stats') : Args(0) {
 
         my $bymonth = $c->req->param('bymonth');
         $c->stash->{bymonth} = $bymonth;
-        my ( %council, %dates );
-        $council{council} = { like => $c->req->param('council') } 
-            if $c->req->param('council');
+        my ( %body, %dates );
+        $body{bodies_str} = { like => $c->req->param('body') } 
+            if $c->req->param('body');
 
-        $c->stash->{selected_council} = $c->req->param('council');
+        $c->stash->{selected_body} = $c->req->param('body');
 
         my $field = 'confirmed';
 
@@ -1004,7 +1100,7 @@ sub stats : Path('stats') : Args(0) {
                     $field => { '>=', $start_date},
                     $field => { '<=', $end_date + $one_day },
                 ],
-                %council,
+                %body,
                 %dates,
             },
             \%select,
@@ -1033,17 +1129,16 @@ sub set_allowed_pages : Private {
     if( !$pages ) {
         $pages = {
              'summary' => [_('Summary'), 0],
-             'council_list' => [_('Council contacts'), 1],
-             'search_reports' => [_('Search Reports'), 2],
+             'bodies' => [_('Bodies'), 1],
+             'reports' => [_('Reports'), 2],
              'timeline' => [_('Timeline'), 3],
-             'questionnaire' => [_('Survey Results'), 4],
-             'search_users' => [_('Search Users'), 5], 
-             'search_abuse' => [_('Search Abuse'), 5],
-             'list_flagged'  => [_('List Flagged'), 6],
+             'questionnaire' => [_('Survey'), 4],
+             'users' => [_('Users'), 5],
+             'flagged'  => [_('Flagged'), 6],
              'stats'  => [_('Stats'), 6],
              'user_edit' => [undef, undef], 
-             'council_contacts' => [undef, undef],
-             'council_edit' => [undef, undef],
+             'body' => [undef, undef],
+             'body_edit' => [undef, undef],
              'report_edit' => [undef, undef],
              'update_edit' => [undef, undef],
              'abuse_edit'  => [undef, undef],
@@ -1058,6 +1153,16 @@ sub set_allowed_pages : Private {
     return 1;
 }
 
+sub get_user : Private {
+    my ( $self, $c ) = @_;
+
+    my $user = $c->req->remote_user();
+    $user ||= ($c->user && $c->user->name);
+    $user ||= '';
+
+    return $user;
+}
+
 =item get_token
 
 Generate a token based on user and secret
@@ -1068,12 +1173,8 @@ sub get_token : Private {
     my ( $self, $c ) = @_;
 
     my $secret = $c->model('DB::Secret')->search()->first;
-
-    my $user = $c->req->remote_user();
-    $user ||= '';
-
-    my $token = md5_hex(($user . $secret->secret));
-
+    my $user = $c->forward('get_user');
+    my $token = sha1_hex($user . $secret->secret);
     $c->stash->{token} = $token;
 
     return 1;
@@ -1100,7 +1201,7 @@ sub check_token : Private {
 
     $c->forward( 'log_edit', [ $object_id, $object_type, $action_performed ] );
 
-Adds an entry into the admin_log table using the current remote_user.
+Adds an entry into the admin_log table using the current user.
 
 =cut
 
@@ -1108,7 +1209,7 @@ sub log_edit : Private {
     my ( $self, $c, $id, $object_type, $action ) = @_;
     $c->model('DB::AdminLog')->create(
         {
-            admin_user => ( $c->req->remote_user() || '' ),
+            admin_user => $c->forward('get_user'),
             object_type => $object_type,
             action => $action,
             object_id => $id,
@@ -1228,20 +1329,35 @@ sub rotate_photo : Private {
     my ( $self, $c ) =@_;
 
     my $direction = $c->req->param('rotate_photo');
+    return unless $direction eq _('Rotate Left') or $direction eq _('Rotate Right');
 
-    return unless $direction =~ /Left/ or $direction =~ /Right/;
+    my $photo = $c->stash->{problem}->photo;
+    my $file;
 
-    my $photo = _rotate_image( $c->stash->{problem}->photo, $direction =~ /Left/ ? -90 : 90 );
-
-    if ( $photo ) {
-        $c->stash->{rotated} = 1;
-        $c->stash->{problem}->photo( $photo );
-        $c->stash->{problem}->update();
+    # If photo field contains a hash
+    if ( length($photo) == 40 ) {
+        $file = file( $c->config->{UPLOAD_DIR}, "$photo.jpeg" );
+        $photo = $file->slurp;
     }
+
+    $photo = _rotate_image( $photo, $direction eq _('Rotate Left') ? -90 : 90 );
+    return unless $photo;
+
+    # Write out to new location
+    my $fileid = sha1_hex($photo);
+    $file = file( $c->config->{UPLOAD_DIR}, "$fileid.jpeg" );
+
+    my $fh = $file->open('w');
+    print $fh $photo;
+    close $fh;
+
+    unlink glob FixMyStreet->path_to( 'web', 'photo', $c->stash->{problem}->id . '.*' );
+
+    $c->stash->{problem}->photo( $fileid );
+    $c->stash->{problem}->update();
 
     return 1;
 }
-
 
 =head2 check_page_allowed
 
@@ -1266,16 +1382,16 @@ sub check_page_allowed : Private {
     return 1;
 }
 
-sub set_up_council_details : Private {
+sub fetch_all_bodies : Private {
     my ($self, $c ) = @_;
 
-    my $areas = mySociety::MaPit::call('areas', $c->cobrand->area_types);
-
-    my @councils_ids = sort { strcoll($areas->{$a}->{name}, $areas->{$b}->{name}) } keys %$areas;
-    @councils_ids = $c->cobrand->filter_all_council_ids_list( @councils_ids );
-
-    $c->stash->{council_ids} = \@councils_ids;
-    $c->stash->{council_details} = $areas;
+    my @bodies = $c->model('DB::Body')->all;
+    if ( $c->cobrand->moniker eq 'zurich' ) {
+        @bodies = $c->cobrand->admin_fetch_all_bodies( @bodies );
+    } else {
+        @bodies = sort { strcoll($a->name, $b->name) } @bodies;
+    }
+    $c->stash->{bodies} = \@bodies;
 
     return 1;
 }

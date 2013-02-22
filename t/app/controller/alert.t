@@ -2,11 +2,8 @@ use strict;
 use warnings;
 use Test::More;
 
-
-use Catalyst::Test 'FixMyStreet::App';
-use Test::WWW::Mechanize::Catalyst 'FixMyStreet::App';
-
-ok( my $mech = Test::WWW::Mechanize::Catalyst->new, 'Created mech object' );
+use FixMyStreet::TestMech;
+my $mech = FixMyStreet::TestMech->new;
 
 # check that we can get the page
 $mech->get_ok('/alert');
@@ -40,7 +37,7 @@ $mech->get_ok('/alert/list?pc=High Street');
 $mech->content_contains('We found more than one match for that location');
 
 $mech->get_ok('/alert/list?pc=');
-$mech->content_contains('hat location does not appear to be covered by a council');
+$mech->content_contains('To find out what local alerts we have for you');
 
 $mech->get_ok('/alert/list?pc=GL502PR');
 $mech->content_contains('Problems within the boundary of');
@@ -50,6 +47,10 @@ $mech->content_contains('Please select the feed you want');
 
 $mech->get_ok('/alert/subscribe?rss=1&feed=invalid:1000:A_Locationtype=local&pc=ky16+8yg&rss=Give+me+an+RSS+feed&rznvy=');
 $mech->content_contains('Illegal feed selection');
+
+$mech->create_body_ok(2504, 'Birmingham City Council');
+$mech->create_body_ok(2226, 'Gloucestershire County Council');
+$mech->create_body_ok(2326, 'Cheltenham Borough Council');
 
 $mech->get_ok('/alert/subscribe?rss=1&feed=area:1000:Birmingham');
 is $mech->uri->path, '/rss/reports/Birmingham';

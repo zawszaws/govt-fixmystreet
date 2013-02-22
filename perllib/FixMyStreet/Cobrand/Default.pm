@@ -4,6 +4,7 @@ use base 'FixMyStreet::Cobrand::Base';
 use strict;
 use warnings;
 use FixMyStreet;
+use FixMyStreet::Geocode::Bing;
 use Encode;
 use URI;
 use Digest::MD5 qw(md5_hex);
@@ -144,6 +145,14 @@ Can be specified in template.
 
 sub enter_postcode_text { }
 
+=head2 site_title
+
+The name of the site
+
+=cut
+
+sub site_title { return 'FixMyStreet'; }
+
 =head2 set_lang_and_domain
 
     my $set_lang = $cobrand->set_lang_and_domain( $lang, $unicode, $dir )
@@ -159,7 +168,8 @@ sub set_lang_and_domain {
     my $lang_override = $self->language_override || $lang;
     my $lang_domain = $self->language_domain || 'FixMyStreet';
 
-    my $set_lang = mySociety::Locale::negotiate_language( $languages, $lang_override );
+    my $headers = $self->{c} ? $self->{c}->req->headers : undef;
+    my $set_lang = mySociety::Locale::negotiate_language( $languages, $lang_override, $headers );
     mySociety::Locale::gettext_domain( $lang_domain, $unicode, $dir );
     mySociety::Locale::change();
     return $set_lang;
@@ -466,14 +476,14 @@ sub format_postcode {
 
     return $postcode;
 }
-=head2 council_check
+=head2 area_check
 
-Paramters are COUNCILS, QUERY, CONTEXT. Return a boolean indicating whether
-COUNCILS pass any extra checks. CONTEXT is where we are on the site.
+Paramters are AREAS, QUERY, CONTEXT. Return a boolean indicating whether
+AREAS pass any extra checks. CONTEXT is where we are on the site.
 
 =cut
 
-sub council_check { return ( 1, '' ); }
+sub area_check { return ( 1, '' ); }
 
 =head2 all_councils_report
 
@@ -516,7 +526,7 @@ Show the problem creation graph in the admin interface
 
 sub admin_show_creation_graph { 1 }
 
-=head2 area_types, area_min_generation
+=head2 area_types
 
 The MaPit types this site handles
 
@@ -524,7 +534,6 @@ The MaPit types this site handles
 
 sub area_types          { FixMyStreet->config('MAPIT_TYPES') || [ 'ZZZ' ] }
 sub area_types_children { FixMyStreet->config('MAPIT_TYPES_CHILDREN') || [] }
-sub area_min_generation { '' }
 
 =head2 contact_name, contact_email
 
@@ -546,39 +555,28 @@ sub email_host {
     return 1;
 }
 
-=item remove_redundant_councils
+=item remove_redundant_areas
 
-Remove councils whose reports go to another council
-
-=cut
-
-sub remove_redundant_councils {
-  my $self = shift;
-  my $all_councils = shift;
-}
-
-=item filter_all_council_ids_list
-
-Removes any council IDs that we don't need from an array and returns the
-filtered array
+Remove areas whose reports go to another area (XXX)
 
 =cut
 
-sub filter_all_council_ids_list {
+sub remove_redundant_areas {
   my $self = shift;
-  return @_;
+  my $all_areas = shift;
 }
 
 =item short_name
 
-Remove extra information from council names for tidy URIs
+Remove extra information from body names for tidy URIs
 
 =cut
 
 sub short_name {
     my $self = shift;
-    my ($area, $info) = @_;
-    my $name = $area->{name};
+    my ($area) = @_;
+
+    my $name = $area->{name} || $area->name;
     $name = URI::Escape::uri_escape_utf8($name);
     $name =~ s/%20/+/g;
     return $name;
@@ -591,6 +589,13 @@ For UK sub-cobrands, to specify various alternations needed for them.
 =cut
 sub is_council { 0; }
 
+=item is_two_tier
+
+For UK sub-cobrands, to specify various alternations needed for them.
+
+=cut
+sub is_two_tier { 0; }
+
 =item council_rss_alert_options
 
 Generate a set of options for council rss alerts. 
@@ -598,10 +603,10 @@ Generate a set of options for council rss alerts.
 =cut
 
 sub council_rss_alert_options {
-    my ( $self, $all_councils, $c ) = @_;
+    my ( $self, $all_areas, $c ) = @_;
 
     my ( @options, @reported_to_options );
-    foreach (values %$all_councils) {
+    foreach (values %$all_areas) {
         $_->{short_name} = $self->short_name( $_ );
         ( $_->{id_name} = $_->{short_name} ) =~ tr/+/_/;
         push @options, {
@@ -616,14 +621,14 @@ sub council_rss_alert_options {
     return ( \@options, @reported_to_options ? \@reported_to_options : undef );
 }
 
-=head2 reports_council_check
+=head2 reports_body_check
 
 This function is called by the All Reports page, and lets you do some cobrand
-specific checking on the URL passed to try and match to a relevant area.
+specific checking on the URL passed to try and match to a relevant body.
 
 =cut
 
-sub reports_council_check {
+sub reports_body_check {
     my ( $self, $c, $code ) = @_;
     return 0;
 }
@@ -645,31 +650,26 @@ Get stats to display on the council reports page
 
 sub get_report_stats { return 0; }
 
-sub get_council_sender {
-    my ( $self, $area_id, $area_info, $category ) = @_;
+sub get_body_sender {
+    my ( $self, $body, $category ) = @_;
 
-    my $send_method;
-
-    my $council_config = FixMyStreet::App->model("DB::Open311conf")->search( { area_id => $area_id } )->first;
-    $send_method = $council_config->send_method if $council_config;
-
-    if ( $council_config && $council_config->can_be_devolved ) {
+    if ( $body->can_be_devolved ) {
         # look up via category
-        my $config = FixMyStreet::App->model("DB::Contact")->search( { area_id => $area_id, category => $category } )->first;
+        my $config = FixMyStreet::App->model("DB::Contact")->search( { body_id => $body->id, category => $category } )->first;
         if ( $config->send_method ) {
             return { method => $config->send_method, config => $config };
         } else {
-            return { method => $send_method, config => $council_config };
+            return { method => $body->send_method, config => $body };
         }
-    } elsif ( $send_method ) {
-        return { method => $send_method, config => $council_config };
+    } elsif ( $body->send_method ) {
+        return { method => $body->send_method, config => $body };
     }
 
-    return $self->_fallback_council_sender( $area_id, $area_info, $category );
+    return $self->_fallback_body_sender( $body, $category );
 }
 
-sub _fallback_council_sender {
-    my ( $self, $area_id, $area_info, $category ) = @_;
+sub _fallback_body_sender {
+    my ( $self, $body, $category ) = @_;
 
     return { method => 'Email' };
 };
@@ -682,7 +682,7 @@ sub example_places {
 
 =head2 only_authed_can_create
 
-If true, only users with the from_council flag set are able to create reports.
+If true, only users with the from_body flag set are able to create reports.
 
 =cut
 
@@ -696,7 +696,7 @@ If set to an arrayref, will plot those area ID(s) from mapit on all the /around 
 
 =cut
 
-sub areas_on_around {}
+sub areas_on_around { []; }
 
 sub process_extras {}
 
@@ -708,8 +708,8 @@ Returns the colour of pin to be used for a particular report
 =cut
 sub pin_colour {
     my ( $self, $p, $context ) = @_;
-    #return 'green' if time() - $p->confirmed_local->epoch < 7 * 24 * 60 * 60;
-    return 'yellow' if $context eq 'around';
+    #return 'green' if time() - $p->confirmed->epoch < 7 * 24 * 60 * 60;
+    return 'yellow' if $context eq 'around' || $context eq 'reports';
     return $p->is_fixed ? 'green' : 'red';
 }
 
@@ -724,6 +724,115 @@ Used in some cobrands to improve the intial display for Internet Explorer.
 sub tweak_all_reports_map {}
 
 sub can_support_problems { return 0; }
+
+sub default_map_zoom { undef };
+
+sub users_can_hide { return 0; }
+
+=head2 default_show_name
+
+Returns true if the show name checkbox should be ticked by default.
+
+=cut
+
+sub default_show_name {
+    1;
+}
+
+=head2 report_check_for_errors
+
+Perform validation for new reports. Takes Catalyst context object as an argument
+
+=cut
+
+sub report_check_for_errors {
+    my $self = shift;
+    my $c = shift;
+
+    return (
+        %{ $c->stash->{field_errors} },
+        %{ $c->stash->{report}->user->check_for_errors },
+        %{ $c->stash->{report}->check_for_errors },
+    );
+}
+
+sub report_sent_confirmation_email { 0; }
+
+=head2 never_confirm_reports
+
+If true then we never send an email to confirm a report
+
+=cut
+
+sub never_confirm_reports { 0; }
+
+=head2 allow_anonymous_reports
+
+If true then can have reports that are truely anonymous - i.e with no email or name. You
+need to also put details in the anonymous_account function too.
+
+=cut
+
+sub allow_anonymous_reports { 0; }
+
+=head2 anonymous_account
+
+Details to use for anonymous reports. This should return a hashref with an email and
+a name key
+
+=cut
+
+sub anonymous_account { undef; }
+
+=head2 show_unconfirmed_reports
+
+Whether reports in state 'unconfirmed' should still be shown on the public site.
+(They're always included in the admin interface.)
+
+=cut
+
+sub show_unconfirmed_reports {
+    0;
+}
+
+=head2 prettify_dt
+
+    my $date = $c->prettify_dt( $datetime );
+
+Takes a datetime object and returns a string representation.
+
+=cut
+
+sub prettify_dt {
+    my $self = shift;
+    my $dt = shift;
+
+    return Utils::prettify_dt( $dt, 1 );
+}
+
+=head2 email_indent
+
+Set to an indent string if you wish to override the default email handling.
+
+=cut
+
+sub email_indent { undef; }
+
+sub problem_as_hashref {
+    my $self = shift;
+    my $problem = shift;
+    my $ctx = shift;
+
+    return $problem->as_hashref( $ctx );
+}
+
+sub updates_as_hashref {
+    my $self = shift;
+    my $problem = shift;
+    my $ctx = shift;
+
+    return {};
+}
 
 1;
 

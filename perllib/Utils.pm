@@ -19,24 +19,6 @@ use mySociety::DBHandle qw(dbh);
 use mySociety::GeoUtil;
 use mySociety::Locale;
 
-sub workaround_pg_bytea {
-    my ( $st, $img_idx, @elements ) = @_;
-    my $s = dbh()->prepare($st);
-    for ( my $i = 1 ; $i <= @elements ; $i++ ) {
-        if ( $i == $img_idx ) {
-            $s->bind_param(
-                $i,
-                $elements[ $i - 1 ],
-                { pg_type => DBD::Pg::PG_BYTEA }
-            );
-        }
-        else {
-            $s->bind_param( $i, $elements[ $i - 1 ] );
-        }
-    }
-    $s->execute();
-}
-
 =head2 convert_latlon_to_en
 
     ( $easting, $northing ) = Utils::convert_en_to_latlon( $latitude, $longitude );
@@ -144,18 +126,7 @@ sub barnet_categories {
     # The values here are KBIDs from Barnet's system: see bin/send-reports for formatting 
     if (mySociety::Config::get('STAGING_SITE')) { # note staging site must use different KBIDs
         return {
-             'Blocked drain'             => 255,  # Gullies-Blocked
-             'Dead animal'               => 286,  # Animals-Dead-Removal
-             'Dog fouling'               => 288,  # Dog Fouling-Clear
-             'Fly tipping'               => 347,  # Fly tipping-Clear
-             'Graffiti'                  => 292,  # Graffiti-Removal
-             'Litter, accumulated'       => 349,  # Accumulated Litter
-             'Litter, overflowing bins'  => 205,  # Litter Bins-Overflowing
-             'Pavements'                 => 195,  # Pavements-Damaged/Cracked
-             'Pothole'                   => 204,  # Pothole
-             'Roads Signs'               => 432,  # Roads Signs - Maintenance
-             'Street Lighting'           => 251,  # Street Lighting
-             'Traffic Lights'            => 103,  # Traffic Lights
+             'Street scene misc'        => 14 # for test
         }
     } else {
         return {
@@ -250,17 +221,12 @@ sub cleanup_text {
     return $input;
 }
 
-sub prettify_epoch {
-    my ( $epoch, $type ) = @_;
+sub prettify_dt {
+    my ( $dt, $type ) = @_;
+    $type ||= '';
     $type = 'short' if $type eq '1';
 
-    my $dt = DateTime->from_epoch( epoch => $epoch, time_zone => 'local' );
-    $dt->set_time_zone( FixMyStreet->config('TIME_ZONE') )
-        if FixMyStreet->config('TIME_ZONE');
-
-    my $now = DateTime->now( time_zone => 'local' );
-    $now->set_time_zone( FixMyStreet->config('TIME_ZONE') )
-        if FixMyStreet->config('TIME_ZONE');
+    my $now = DateTime->now( time_zone => FixMyStreet->config('TIME_ZONE') || 'local' );
 
     my $tt = '';
     $tt = $dt->strftime('%H:%M') unless $type eq 'date';
@@ -271,6 +237,8 @@ sub prettify_epoch {
     $tt .= ', ' unless $type eq 'date';
     if ($dt->strftime('%Y %U') eq $now->strftime('%Y %U')) {
         $tt .= decode_utf8($dt->strftime('%A'));
+    } elsif ($type eq 'zurich') {
+        $tt .= decode_utf8($dt->strftime('%e. %B %Y'));
     } elsif ($type eq 'short') {
         $tt .= decode_utf8($dt->strftime('%e %b %Y'));
     } elsif ($dt->strftime('%Y') eq $now->strftime('%Y')) {

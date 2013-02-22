@@ -13,9 +13,53 @@ $color_bg_reply_5:       #BFBFBF;
 $color_bg_reply_6:       #B8B8B8;
 $color_bg_mm_list:       #F6F6F6;
 
-#message_manager {
+$color_bg_btn_hide:      #ff0000;
+$color_bg_btn_reply:     #008000;
+$color_bg_btn_info:      #0000ff;
+$color_bg_btn_detach:    #FFA500;
 
+$weak_text_color:      #666;
+
+p.mm-submitted-by-sms {
+  color: $weak_text_color;
+  font-style: italic;
+  font-size: 0.8125em;
+  img {
+    border: none;
+    margin-right: 0.5em;
+    width: 22px;
+    height: 40px;
+    vertical-align:middle;
+    display: inline;
+  }
+}
+
+#message_manager {
+  margin-top: 0;
+  li#mm-admin-buttons {
+    margin: -0.5em 0 0 0;
+    text-align: right;
+    font-size:80%;
+    padding:4px 0;
+    a {
+      padding: 0.25em 0.5em;
+      border:1px solid $mm_border_color;
+      margin: 0 0.5em;
+      display: inline-block;
+    }
+    background-color: #fff;
+    &:hover {
+      background-color: #fff;
+    }
+    #mm-link-to-toggle-archive {
+      border-color: green;
+    }
+  }
   #message-control {
+    background-color: #fff;
+    &:hover {
+      background-color: #fff;
+    }
     #mm-username-container {
       display: none; // hidden during dev
       padding: 8px;
@@ -28,11 +72,22 @@ $color_bg_mm_list:       #F6F6F6;
       }
     }
     #mm-status-message-container {
+      position: relative;
       min-height: 1.4em;
       margin: 0 0 8px 0.5em;
-      padding: 8px 4px;
+      padding: 8px 4px 8px 24px;
       color: $mm_status_message_color;
       font-style: italic;
+      p {
+        margin:0;
+        padding:0;
+      }
+      #mm-spinner {
+        position: absolute;
+        left: 4px;
+        top: 10px;
+        display: none;
+      }
     }
     #mm-login-container {
       display: none; // only shown on/after a 403
@@ -55,13 +110,21 @@ $color_bg_mm_list:       #F6F6F6;
         clear: both;
         margin: 4px 0 0 0;
         padding: 0;
-        cursor: pointer;
         background-color: $color_bg_mm_list;
         p {
           background-color: inherit;
           margin: 0.25em 0 0 0;
           padding: 0.5em 1em;
-          // &:hover { background-color: #efe;}
+          &:hover { background-color: #efe;}
+          .msg-info-box {
+            font-style: italic;
+            font-size: 90%;
+            color: #666;
+            border-top: 1px dashed #666;
+            padding:4px 0 0 0;
+            margin: 4px 0 0 0;
+            display: none;
+          }
         }
         ul.mm-reply-thread {
           li {
@@ -83,11 +146,16 @@ $color_bg_mm_list:       #F6F6F6;
         &.msg-is-locked { background-color: #fdd;}
         &.msg-is-busy { background-color: #ffd;}
         &.msg-is-owned { background-color: #dfd;}
-        &.msg-is-active { background-color: $contrast1; color:#fff;}
+        &.msg-is-active { 
+          background-color: $col_click_map; color:#fff;
+          p:hover { background-color: $col_click_map; color:#fff; } // fix for mouseover on p
+          p.mm-reply:hover {background-color: #eef; color:#000;} // fix for mouseover on p
+        }
         span.msg-tag {
           width: 3em;
           float:left;
         }
+        .mm-radio-filler,
         input[type=radio] {
           display: block;
           float: left;
@@ -96,6 +164,10 @@ $color_bg_mm_list:       #F6F6F6;
           display: block;
           font-weight: normal;
           margin: 0.1em 0 0.1em 4.5em;
+        }
+        .mm-radio-filler {
+          margin:0;
+          padding:0;
         }
         .mm-msg-action {
           display: none;
@@ -108,11 +180,29 @@ $color_bg_mm_list:       #F6F6F6;
         }
         .mm-hide {
           right:0px;
-          background-color: red;
+          background-color: $color_bg_btn_hide;
+          cursor: pointer;
+        }
+        .mm-info {
+          right:1.5em;
+          background-color: $color_bg_btn_info;
+          cursor: pointer;
         }
         .mm-rep {
-          right:1.4em;
-          background-color: green;
+          right:2.6em;
+          background-color: $color_bg_btn_reply;
+          cursor: pointer;
+        }
+        .mm-detach {
+          right:5.65em;
+          background-color: $color_bg_btn_detach;
+          cursor: pointer;
+        }
+      }
+      &.mm-archive {
+        display: none; // archive only shown on interaction
+        li label {
+          cursor: default;
         }
       }
     }
@@ -121,13 +211,56 @@ $color_bg_mm_list:       #F6F6F6;
     margin: 1em;
   }
 }
-#show_messages, #add_support, #reply-submit { // COPY TO UPDATE button
+#show_messages, #copy_to_update, #reply-submit {
   margin: 1em;
 }
-#reply-form-container {
+#copy_to_update {
+  display: none; // show on demand, not before
+}
+#show_messages {
+  width: 11em; // hack to stop adjacent button hopping when button message changes
+}
+
+#detach-form-container,
+#reply-form-container, 
+#hide-form-container {
+  p {
+    color: #000;
+    max-width: 25em;
+    margin: 1em;
+  }
+  #hide-form,
   #reply-form{
     margin-top: 2em;
-    border: 1px solid $mm_border_color;
-    background-color: #fff;
+    textarea {
+      min-height: 3em;
+      margin-bottom: 0.5em;
+    }
+  }
+  #mm-boilerplate-replies-box, #mm-boilerplate-hide-reasons-box {
+    overflow: hidden;
+    display: none;
+  }
+  select {
+    width: 100%;
+    max-width: 25em;
+  }
+}
+#mm-help {
+  .demo_hide_btn, .demo_reply_btn, .demo_info_btn, .demo_detach_btn {
+    color: #fff;
+    font-weight: bold;
+    padding: 0.2em 0.4em;
+  }
+  .demo_hide_btn  { background-color: $color_bg_btn_hide;  }
+  .demo_reply_btn { background-color: $color_bg_btn_reply; }
+  .demo_info_btn  { background-color: $color_bg_btn_info;  }
+  .demo_detach_btn{ background-color: $color_bg_btn_detach;  }
+  h3 {
+    border-top: 1px solid $color_reply_bg;
+    padding-top: 0.8em;
+  }
+  p {
+    margin: 1em;
   }
 }

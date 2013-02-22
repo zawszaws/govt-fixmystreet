@@ -1,7 +1,12 @@
 /* HEADINGS and TYPOGRAPHY */
 
+$body-font: MuseoSans, Helmet, Freesans, sans-serif !default;
+$meta-font: Helmet, Freesans, sans-serif !default;
+$heading-font: 'Museo300-display', MuseoSans, Helmet, Freesans, sans-serif !default;
+$image-sprite: '/cobrands/fixmystreet/images/sprite.png' !default;
+
 body {
-  font-family: MuseoSans, Helmet, Freesans, sans-serif;
+  font-family: $body-font;
   margin:0;
   font-size:1em;
   line-height:1.5;
@@ -17,14 +22,14 @@ p {
 }
 
 small{
-  font-family: Helmet, Freesans, sans-serif;
+  font-family: $meta-font;
   font-style: italic;
   font-size: 0.8125em;
   line-height: 1.2307em;
 }
 
 h1 {
-  font-family: 'Museo300-display', MuseoSans, Helmet, Freesans, sans-serif;
+  font-family: $heading-font;
   font-size: 2em;
   line-height: 1em;
   font-weight: normal;
@@ -40,7 +45,7 @@ h1#reports_heading a {
 }
 
 h2 {
-  font-family:'Museo300-display', MuseoSans, Helmet, Freesans, sans-serif;
+  font-family: $heading-font;
   font-size: 1.5em; /*24px*/
   line-height: 1.3333em; /*32px*/
   font-weight: normal;
@@ -102,7 +107,7 @@ ol.big-numbers {
       color:#ccc;
       line-height:1;
       font: {
-        family: Helmet, Freesans, sans-serif;
+        family: $meta-font;
         weight:bold;
         size:2.5em;
       }
@@ -188,14 +193,14 @@ a:visited {
   margin-bottom: 0px;
 }
 .meta-2{
-  font-family: Helmet, Freesans, sans-serif;
+  font-family: $meta-font;
   color:#666666;
   font-style: italic;
   font-size: 0.75em;
 }
 
 h4.static{
-  font-family: Helmet, Freesans, sans-serif;
+  font-family: $meta-font;
   text-transform: uppercase;
   font-size: 0.875em;
   line-height: 1.71428em;
@@ -250,10 +255,13 @@ fieldset {
   margin: 1em;
 }
 
+input[type=file] {
+    width: 100%;
+}
+
 input[type=text],
 input[type=password],
 input[type=email],
-input[type=file],
 textarea {
   @include box-sizing(border-box);
   width: 100%;
@@ -264,7 +272,6 @@ textarea {
     input[type=text],
     input[type=password],
     input[type=email],
-    input[type=file],
     textarea {
         max-width: 95%;
     }
@@ -284,22 +291,18 @@ textarea {
   display: block;
   font-size: 1em;
   line-height: 1.5em;
-  font-family: Helmet, Freesans, sans-serif;
+  font-family: $meta-font;
   min-height:8em;
 }
 
 input[type=text],
 input[type=password],
-input[type=email],
-input[type=file] {
+input[type=email] {
   border: 0.125em solid #888888;
   @include border-radius(0.25em);
   display: block;
   font-size: 1em;
   line-height: 1em;
-}
-input[type=file] {
-  margin-bottom:1em;
 }
 
 label{
@@ -451,7 +454,7 @@ p.label-valid {
   background: url('/cobrands/fixmystreet/images/ie_logo.gif') 0 -5px no-repeat;
 }
 .ie7 #site-logo {
-  background: url('/cobrands/fixmystreet/images/sprite.png') -3px -3px no-repeat;
+  background: url($image-sprite) -3px -3px no-repeat;
 }
 
 // this is a skip to nav for mobile users only
@@ -510,7 +513,7 @@ p.label-valid {
   background: url('/cobrands/fixmystreet/images/ie_mysoc_logo.gif') center no-repeat;
 }
 .ie7 #main-nav ul#mysoc-menu li a#mysoc-logo {
-  background: url('/cobrands/fixmystreet/images/sprite.png') -240px -38px no-repeat;
+  background: url($image-sprite) -240px -38px no-repeat;
 }
 
 //defines where the table caption is (login stuff on mob, nav menu on desktop)
@@ -570,7 +573,7 @@ p.label-valid {
         text-transform:uppercase;
         font: {
           size:0.6875em;
-          family: Helmet, Freesans, sans-serif;
+          family: $meta-font;
         }
         &:hover, &.hover {
           text-decoration:none;
@@ -578,19 +581,23 @@ p.label-valid {
           color:#fff;
         }
         &.abuse {
-          background-image:url('/cobrands/fixmystreet/images/sprite.png');
+          background-image:url($image-sprite);
           background-position:center -2424px;
         }
         &.feed {
-          background-image:url('/cobrands/fixmystreet/images/sprite.png');
+          background-image:url($image-sprite);
           background-position:center -2563px;
         }
+        &.share {
+          background-image: url('/cobrands/fixmystreet/images/share.png');
+          background-position: center 25%;
+        }
         &.chevron {
-          background-image:url('/cobrands/fixmystreet/images/sprite.png');
+          background-image:url($image-sprite);
           background-position:center -2716px;
         }
         &.hover {
-          background-image:url('/cobrands/fixmystreet/images/sprite.png');
+          background-image:url($image-sprite);
           background-position:center -2064px;
         }
       }
@@ -631,8 +638,19 @@ p.label-valid {
   }
 }
 
+#report-updates-data img {
+    float: right;
+}
+
+#report-share iframe {
+    vertical-align: top;
+}
 
 //footer blocks
+footer {
+    margin-top: 1em;
+}
+
 #footer-mobileapps {
   @extend .full-width;
   padding:1em;
@@ -725,7 +743,7 @@ a.button-right,
 :hover.button-right,
 a:hover.button-right {
   padding:1em 3em 1em 1em;
-  background-image: url('/cobrands/fixmystreet/images/sprite.png');
+  background-image: url($image-sprite);
   background-repeat:no-repeat;
   background-position:right -686px;
 }
@@ -735,7 +753,7 @@ a.button-left,
 :hover.button-left,
 a:hover.button-left {
   padding:1em 1em 1em 3em;
-  background-image: url('/cobrands/fixmystreet/images/sprite.png');
+  background-image: url($image-sprite);
   background-repeat:no-repeat;
   background-position:-18px -802px;
 }
@@ -744,7 +762,7 @@ a:hover.button-left {
   position: relative;
   z-index:1000;
   top:-1.75em;
-  background: $contrast1;
+  background: $col_click_map;
   color: #fff;
   padding:1em;
   text: {
@@ -760,7 +778,7 @@ a:hover.button-left {
     width: 0;
     height: 0;
     border-left: 0.5em solid transparent;
-    border-bottom: 0.5em solid $contrast1_dark;
+    border-bottom: 0.5em solid $col_click_map_dark;
   }
 }
 
@@ -794,9 +812,9 @@ a:hover.button-left {
     }
     &#fixed {
       color:#fff;
-      background: $contrast1;
+      background: $col_fixed_label;
       &:before {
-        border-bottom: 0.5em solid $contrast1_dark;
+        border-bottom: 0.5em solid $col_fixed_label_dark;
       }
     }
   }
@@ -956,7 +974,7 @@ a:hover.button-left {
       width:20px;
       height:20px;
       opacity: 0.5;
-      background:#fff url(/cobrands/fixmystreet/images/sprite.png) -16px -1098px no-repeat;
+      background:#fff url($image-sprite) -16px -1098px no-repeat;
       //hide text - http://nicolasgallagher.com/another-css-image-replacement-technique/
       font: 0/0 a;
       color: transparent;
@@ -1000,7 +1018,7 @@ a:hover.button-left {
 // Left and right so that zoom can be left, pan right.
 #fms_pan_zoom {
   right: 0.5em !important;
-  top: 0.5em !important;
+  top: 2.75em !important;
   left: 0.5em !important;
 }
 // The left and right of the above causes the navigation to move off-screen left in IE6.
@@ -1020,7 +1038,7 @@ a:hover.button-left {
   height:36px !important;
   text-indent:-999999px;
   opacity:0.85;
-  background:url('/cobrands/fixmystreet/images/sprite.png') no-repeat;
+  background:url($image-sprite) no-repeat;
   &:hover {
     opacity:1;
   }
@@ -1088,19 +1106,19 @@ a:hover.button-left {
     padding:0.6em 3em 0.5em 1em;
     background-repeat:no-repeat;
     &#hide_pins_link {
-      background-image:url('/cobrands/fixmystreet/images/sprite.png');
+      background-image:url($image-sprite);
       background-position: right -3976px;
     }
     &#all_pins_link {
-      background-image:url('/cobrands/fixmystreet/images/sprite.png');
+      background-image:url($image-sprite);
       background-position: right -4022px;
     }
     &#map_permalink {
-      background-image:url('/cobrands/fixmystreet/images/sprite.png');
+      background-image:url($image-sprite);
       background-position: right -4070px;
     }
     &.feed {
-      background-image:url('/cobrands/fixmystreet/images/sprite.png');
+      background-image:url($image-sprite);
       background-position: right -3936px;
     }
     &:hover {
@@ -1146,25 +1164,29 @@ a:hover.button-left {
     }
   }
   &.map_complete {
-    background:none;
-    display:block;
-    border-bottom:4px solid #fff;
+    height: 100%;
+    background: none;
+    display: block;
+    border-bottom: 4px solid #fff;
     a#try_again {
-      display:block;
-      margin:0 auto 6em auto;
-      background:rgba(0, 0, 0, 0.8);
+      position: absolute;
+      display: block;
+      left: 25%;
+      bottom: 0;
+      margin-bottom: 6em;
+      background: rgba(0, 0, 0, 0.8);
       @include border-radius(0.5em);
     }
     a#mob_ok {
-      position:absolute;
-      right:1em;
-      bottom:0;
-      height:20px;
-      padding-top:30px;
-      display:block;
-      width:4em;
-      background:#fff url('/cobrands/fixmystreet/images/sprite.png') 12px -4140px no-repeat;
-      color:#000;
+      position: absolute;
+      display: block;
+      right: 1em;
+      bottom: 0;
+      height: 20px;
+      padding-top: 30px;
+      width: 4em;
+      background: #fff url($image-sprite) 12px -4140px no-repeat;
+      color: #000;
     }
   }
 }
@@ -1347,10 +1369,10 @@ table.nicetable {
     width:16px;
     height:16px;
     text-indent:-999999px;
-    background:url(/cobrands/fixmystreet/images/sprite.png) -341px -263px no-repeat;
+    background:url($image-sprite) -341px -263px no-repeat;
     @include border-radius(4px);
     &:hover {
-      background:#222 url(/cobrands/fixmystreet/images/sprite.png) -341px -223px no-repeat;
+      background:#222 url($image-sprite) -341px -223px no-repeat;
     }
   }
 }
@@ -1385,9 +1407,7 @@ table.nicetable {
     background: $primary;
     padding-left:0.5em;
     padding-right:0.5em;
-    color:#1a1a1a;
     &:hover {
-      color:#1a1a1a;
       text-decoration:none;
       background:$primary/1.1;
     }
@@ -1419,7 +1439,7 @@ table.nicetable {
   h2 {
     font: {
       style:italic;
-      family: Helmet, Freesans, sans-serif;
+      family: $meta-font;
       size:1.1875em;
     }
     color:#4d4d4d;
@@ -1432,7 +1452,7 @@ table.nicetable {
     padding:1em;
     color: $primary_text;
     background: $primary;
-    font-family: Helmet, Freesans, sans-serif;
+    font-family: $meta-font;
     label {
       margin:0;
     }
@@ -1450,7 +1470,7 @@ table.nicetable {
         background:none;
         line-height:1.5em;
       }
-      input#submit {
+      input#sub {
         display:table-cell;
         border:none;
         padding:0;
@@ -1474,7 +1494,7 @@ table.nicetable {
     color:#C8C8C8;
     padding:0.5em;
     font: {
-      family: Helmet, Freesans, sans-serif;
+      family: $meta-font;
       size:0.8125em;
     }
     @include border-radius(0 0 0.25em 0.25em);
@@ -1491,7 +1511,7 @@ table.nicetable {
     width:100%;
     color: $primary_text;
     background: $primary;
-    font-family: Helmet, Freesans, sans-serif;
+    font-family: $meta-font;
     div {
       display:table-cell;
       text-align:center;

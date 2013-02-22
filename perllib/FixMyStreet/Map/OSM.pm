@@ -62,7 +62,7 @@ sub display_map {
     # Adjust zoom level dependent upon population density
     my $dist = $c->stash->{distance}
         || mySociety::Gaze::get_radius_containing_population( $params{latitude}, $params{longitude}, 200_000 );
-    my $default_zoom = $numZoomLevels - 3;
+    my $default_zoom = $c->cobrand->default_map_zoom() ? $c->cobrand->default_map_zoom() : $numZoomLevels - 3;
     $default_zoom = $numZoomLevels - 2 if $dist < 10;
 
     # Map centre may be overridden in the query string
@@ -92,29 +92,6 @@ sub display_map {
         numZoomLevels => $numZoomLevels,
         compass => compass( $params{x_tile}, $params{y_tile}, $params{zoom_act} ),
     };
-}
-
-sub map_pins {
-    my ($self, $c, $interval) = @_;
-
-    my $bbox = $c->req->param('bbox');
-    my ( $min_lon, $min_lat, $max_lon, $max_lat ) = split /,/, $bbox;
-
-    my ( $around_map, $around_map_list, $nearby, $dist ) =
-      FixMyStreet::Map::map_features_bounds( $c, $min_lon, $min_lat, $max_lon, $max_lat, $interval );
-
-    # create a list of all the pins
-    my @pins = map {
-        # Here we might have a DB::Problem or a DB::Nearby, we always want the problem.
-        my $p = (ref $_ eq 'FixMyStreet::App::Model::DB::Nearby') ? $_->problem : $_;
-        my $colour = $c->cobrand->pin_colour( $p, 'around' );
-        [ $p->latitude, $p->longitude,
-          $colour,
-          $p->id, $p->title
-        ]
-    } @$around_map, @$nearby;
-
-    return (\@pins, $around_map_list, $nearby, $dist);
 }
 
 sub compass {

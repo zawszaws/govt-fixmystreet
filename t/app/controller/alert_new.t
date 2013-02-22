@@ -307,6 +307,9 @@ for my $test (
     };
 }
 
+$mech->create_body_ok(2226, 'Gloucestershire County Council');
+$mech->create_body_ok(2326, 'Cheltenham Borough Council');
+
 subtest "Test two-tier council alerts" => sub {
     for my $alert (
         { feed => "local:51.896269:-2.093063",          result => '/rss/l/51.896269,-2.093063' },
@@ -330,20 +333,21 @@ subtest "Test two-tier council alerts" => sub {
                 feed => $alert->{feed},
             }
         } );
-        is $mech->uri->path, $alert->{result};
+        is $mech->uri->path, $alert->{result}, 'Redirected to right RSS feed';
     }
 };
 
 subtest "Test normal alert signups and that alerts are sent" => sub {
+    $mech->delete_user( 'reporter@example.com' );
+    $mech->delete_user( 'alerts@example.com' );
+
     my $user1 = FixMyStreet::App->model('DB::User')
       ->find_or_create( { email => 'reporter@example.com', name => 'Reporter User' } );
     ok $user1, "created test user";
-    $user1->alerts->delete;
 
     my $user2 = FixMyStreet::App->model('DB::User')
       ->find_or_create( { email => 'alerts@example.com', name => 'Alert User' } );
     ok $user2, "created test user";
-    $user2->alerts->delete;
 
     for my $alert (
         {
@@ -382,7 +386,7 @@ subtest "Test normal alert signups and that alerts are sent" => sub {
     my $report_time = '2011-03-01 12:00:00';
     my $report = FixMyStreet::App->model('DB::Problem')->find_or_create( {
         postcode           => 'EH1 1BB',
-        council            => '2651',
+        bodies_str         => '2651',
         areas              => ',11808,135007,14419,134935,2651,20728,',
         category           => 'Street lighting',
         title              => 'Testing',
@@ -390,7 +394,7 @@ subtest "Test normal alert signups and that alerts are sent" => sub {
         used_map           => 1,
         name               => $user1->name,
         anonymous          => 0,
-        state              => 'confirmed',
+        state              => 'fixed - user',
         confirmed          => $dt,
         lastupdate         => $dt,
         whensent           => $dt->clone->add( minutes => 5 ),
@@ -430,7 +434,7 @@ subtest "Test normal alert signups and that alerts are sent" => sub {
         problem_id => $report_id,
         user_id    => $user2->id,
         name       => 'Anonymous User',
-        mark_fixed => 'false',
+        mark_fixed => 'true',
         text       => 'This is some more update text',
         state      => 'confirmed',
         confirmed  => $dt->clone->add( hours => 8 ),
@@ -450,13 +454,23 @@ subtest "Test normal alert signups and that alerts are sent" => sub {
         $count++ if $_->body =~ /The following nearby problems have been added:/;
         $count++ if $_->body =~ /\s+-\s+Testing/;
     }
-    is $count, 5, 'Five emails with the right things in them';
+    is $count, 5, 'Three emails, with five matching lines in them';
 
     my $email = $emails[0];
     like $email->body, qr/Other User/, 'Update name given';
     unlike $email->body, qr/Anonymous User/, 'Update name not given';
 
-    my ( $url, $url_token ) = $emails[0]->body =~ m{http://\S+(/A/(\S+))};
+    # The update alert was to the problem reporter, so has a login update URL
+    $mech->get_ok( "/report/$report_id" );
+    $mech->content_lacks( 'has not been fixed' );
+    my ($url) = $email->body =~ m{(http://\S+/M/\S+)};
+    ok $url, "extracted update url '$url'";
+    $mech->get_ok( $url );
+    is $mech->uri->path, "/report/" . $report_id, "redirected to report page";
+    $mech->content_contains( 'has not been fixed' );
+    $mech->logged_in_ok;
+
+    ($url) = $emails[0]->body =~ m{http://\S+(/A/\S+)};
     $mech->get_ok( $url );
     $mech->content_contains('successfully deleted');
 
@@ -499,15 +513,16 @@ for my $test (
     },
 ) {
     subtest $test->{desc} => sub {
+        $mech->delete_user( 'reporter@example.com' );
+        $mech->delete_user( 'alerts@example.com' );
+
         my $user1 = FixMyStreet::App->model('DB::User')
           ->find_or_create( { email => 'reporter@example.com', name => 'Reporter User' } );
         ok $user1, "created test user";
-        $user1->alerts->delete;
 
         my $user2 = FixMyStreet::App->model('DB::User')
           ->find_or_create( { email => 'alerts@example.com', name => 'Alert User' } );
         ok $user2, "created test user";
-        $user2->alerts->delete;
 
         my $dt = DateTime->now->add( minutes => -30 );
         my $r_dt = $dt->clone->add( minutes => 20 );
@@ -522,7 +537,7 @@ for my $test (
 
         my $report = FixMyStreet::App->model('DB::Problem')->find_or_create( {
             postcode           => 'EH1 1BB',
-            council            => '2651',
+            bodies_str         => '2651',
             areas              => ',11808,135007,14419,134935,2651,20728,',
             category           => 'Street lighting',
             title              => 'Alert test for non public reports',
@@ -561,15 +576,16 @@ for my $test (
 }
 
 subtest 'check new updates alerts for non public reports only go to report owner' => sub {
+    $mech->delete_user( 'reporter@example.com' );
+    $mech->delete_user( 'alerts@example.com' );
+
     my $user1 = FixMyStreet::App->model('DB::User')
       ->find_or_create( { email => 'reporter@example.com', name => 'Reporter User' } );
     ok $user1, "created test user";
-    $user1->alerts->delete;
 
     my $user2 = FixMyStreet::App->model('DB::User')
       ->find_or_create( { email => 'alerts@example.com', name => 'Alert User' } );
     ok $user2, "created test user";
-    $user2->alerts->delete;
 
     my $user3 = FixMyStreet::App->model('DB::User')
       ->find_or_create( { email => 'updates@example.com', name => 'Update User' } );
@@ -580,7 +596,7 @@ subtest 'check new updates alerts for non public reports only go to report owner
 
     my $report = FixMyStreet::App->model('DB::Problem')->find_or_create( {
         postcode           => 'EH1 1BB',
-        council            => '2651',
+        bodies_str         => '2651',
         areas              => ',11808,135007,14419,134935,2651,20728,',
         category           => 'Street lighting',
         title              => 'Alert test for non public reports',

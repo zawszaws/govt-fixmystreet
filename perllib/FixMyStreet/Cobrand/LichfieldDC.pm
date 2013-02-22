@@ -8,11 +8,12 @@ sub council_id { return 2434; }
 sub council_area { return 'Lichfield district'; }
 sub council_name { return 'Lichfield District Council'; }
 sub council_url { return 'lichfielddc'; }
+sub is_two_tier { return 1; }
 
 # Different to councils parent due to this being a two-tier council. If we get
 # more, this can be genericised in the parent.
 sub problems_clause {
-    return { council => { like => '%2434%' } };
+    return { bodies_str => { like => '%2434%' } };
 }
 
 # FIXME - need to double check this is all correct
@@ -26,15 +27,8 @@ sub disambiguate_location {
     };
 }
 
-# If we ever link to a county problem report, needs to be to main FixMyStreet
-sub base_url_for_report {
-    my ( $self, $report ) = @_;
-    my %councils = map { $_ => 1 } @{$report->councils};
-    if ( $councils{2434} ) {
-        return $self->base_url;
-    } else {
-        return FixMyStreet->config('BASE_URL');
-    }
+sub map_type {
+    return 'OSM';
 }
 
 1;

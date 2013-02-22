@@ -22,9 +22,19 @@ BASE_URL: 'http://www.example.org'
 EMAIL_DOMAIN: 'example.org'
 CONTACT_EMAIL: 'team@example.org'
 CONTACT_NAME: 'FixMyStreet'
+# Address used for emails you don't expect a reply to (e.g. confirmation
+# emails); can be same as CONTACT_EMAIL above, of course, if you don't have a
+# special address.
+DO_NOT_REPLY_EMAIL: 'do-not-reply@example.org'
 
-# Whether this is a development site or not.
+# Whether this is a development site or not. It will mean e.g. templates/
+# CSS modified times aren't cached
 STAGING_SITE: 1
+# Normally, a staging site will route all reports to CONTACT_EMAIL on a
+# development site (when STAGING_SITE is 1), to guard against sending fake
+# reports to live places. Set this to 1 if you want a dev site to route
+# reports as normal.
+SEND_REPORTS_ON_STAGING: 0
 
 # What to use as front page/alert example places placeholder
 # Defaults to High Street, Main Street
@@ -69,8 +79,12 @@ MAPIT_TYPES: [ 'ZZZ' ]
 #   MAPIT_TYPES_CHILDREN: [ 'DIW', 'LBW', 'MTW', 'UTE', 'UTW', 'CED', 'COP', 'LGW' ]
 MAPIT_TYPES_CHILDREN: ''
 
+# Which service to use to look up results from e.g. front page searches.
+# Possible choices are Google, Bing, or OSM (blank will use OSM by default).
+GEOCODER: ''
+
 # If you wish to use Google Maps or Bing Maps Geocoding, get and put the
-# relevant key here. Without a key, geocoding will use OSM's Nominatim.
+# relevant key here.
 GOOGLE_MAPS_API_KEY: ''
 BING_MAPS_API_KEY: ''
 

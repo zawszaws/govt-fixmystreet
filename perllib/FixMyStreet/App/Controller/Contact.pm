@@ -113,6 +113,9 @@ sub validate : Private {
           or $c->req->param('update_id')
           && $c->req->param('update_id') !~ /^[1-9]\d*$/;
 
+    push @errors, _('There was a problem showing this page. Please try again later.')
+      if $c->req->params->{message} && $c->req->params->{message} =~ /\[url=/;
+
     unshift @errors,
       _('There were problems with your report. Please see below.')
       if scalar keys %field_errors;
@@ -184,7 +187,7 @@ generally required to stash
 sub setup_request : Private {
     my ( $self, $c ) = @_;
 
-    $c->stash->{contact_email} = $c->cobrand->contact_email( 'contact' );
+    $c->stash->{contact_email} = $c->cobrand->contact_email;
     $c->stash->{contact_email} =~ s/\@/&#64;/;
 
     for my $param (qw/em subject message/) {
@@ -206,7 +209,7 @@ Sends the email
 sub send_email : Private {
     my ( $self, $c ) = @_;
 
-    my $recipient      = $c->cobrand->contact_email( 'contact' );
+    my $recipient      = $c->cobrand->contact_email;
     my $recipient_name = $c->cobrand->contact_name();
 
     $c->stash->{host} = $c->req->header('HOST');

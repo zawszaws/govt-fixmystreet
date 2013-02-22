@@ -15,15 +15,17 @@ has test_mode => ( is => 'ro', isa => 'Bool' );
 has test_uri_used => ( is => 'rw', 'isa' => 'Str' );
 has test_req_used => ( is => 'rw' );
 has test_get_returns => ( is => 'rw' );
-has endpoints => ( is => 'rw', default => sub { { services => 'services.xml', requests => 'requests.xml', service_request_updates => 'update.xml', update => 'update.xml' } } );
+has endpoints => ( is => 'rw', default => sub { { services => 'services.xml', requests => 'requests.xml', service_request_updates => 'servicerequestupdates.xml', update => 'servicerequestupdates.xml' } } );
 has debug => ( is => 'ro', isa => 'Bool', default => 0 );
 has debug_details => ( is => 'rw', 'isa' => 'Str', default => '' );
 has success => ( is => 'rw', 'isa' => 'Bool', default => 0 );
 has error => ( is => 'rw', 'isa' => 'Str', default => '' );
 has always_send_latlong => ( is => 'ro', isa => 'Bool', default => 1 );
 has send_notpinpointed => ( is => 'ro', isa => 'Bool', default => 0 );
-has basic_description => ( is => 'ro', isa => 'Bool', default => 0 );
+has extended_description => ( is => 'ro', isa => 'Str', default => 1 );
 has use_service_as_deviceid => ( is => 'ro', isa => 'Bool', default => 0 );
+has use_extended_updates => ( is => 'ro', isa => 'Bool', default => 0 );
+has extended_statuses => ( is => 'ro', isa => 'Bool', default => 0 );
 
 before [
     qw/get_service_list get_service_meta_info get_service_requests get_service_request_updates
@@ -37,7 +39,11 @@ sub get_service_list {
 
     my $service_list_xml = $self->_get( $self->endpoints->{services} );
 
-    return $self->_get_xml_object( $service_list_xml );
+    if ( $service_list_xml ) {
+        return $self->_get_xml_object( $service_list_xml );
+    } else {
+        return undef;
+    }
 }
 
 sub get_service_meta_info {
@@ -94,12 +100,12 @@ sub _populate_service_request_params {
     my $service_code = shift;
 
     my $description;
-    if ( $self->basic_description ) {
-        $description = $problem->detail;
-    } else {
+    if ( $self->extended_description ) {
         $description = $self->_generate_service_request_description(
             $problem, $extra
         );
+    } else {
+        $description = $problem->detail;
     }
 
     my ( $firstname, $lastname ) = ( $problem->user->name =~ /(\w+)\.?\s+(.+)/ );
@@ -167,8 +173,6 @@ sub _generate_service_request_description {
     my $extra = shift;
 
     my $description = <<EOT;
-title: @{[$problem->title()]}
-
 detail: @{[$problem->detail()]}
 
 url: $extra->{url}
@@ -176,6 +180,12 @@ url: $extra->{url}
 Submitted via FixMyStreet
 EOT
 ;
+    if ($self->extended_description ne 'oxfordshire') {
+        $description = <<EOT . $description;
+title: @{[$problem->title()]}
+
+EOT
+    }
 
     return $description;
 }
@@ -282,18 +292,52 @@ sub _populate_service_request_update_params {
     my $name = $comment->name || $comment->user->name;
     my ( $firstname, $lastname ) = ( $name =~ /(\w+)\.?\s+(.+)/ );
 
+    # fall back to problem state as it's probably correct
+    my $state = $comment->problem_state || $comment->problem->state;
+
+    my $status = 'OPEN';
+    if ( $self->extended_statuses ) {
+        if ( FixMyStreet::DB::Result::Problem->fixed_states()->{$state} ) {
+            $status = 'FIXED';
+        } elsif ( $state eq 'in progress' ) {
+            $status = 'IN_PROGRESS';
+        } elsif ($state eq 'action scheduled'
+            || $state eq 'planned' ) {
+            $status = 'ACTION_SCHEDULED';
+        } elsif ( $state eq 'investigating' ) {
+            $status = 'INVESTIGATING';
+        } elsif ( $state eq 'duplicate' ) {
+            $status = 'DUPLICATE';
+        } elsif ( $state eq 'not responsible' ) {
+            $status = 'NOT_COUNCILS_RESPONSIBILITY';
+        } elsif ( $state eq 'unable to fix' ) {
+            $status = 'NO_FURTHER_ACTION';
+        } elsif ( $state eq 'internal referral' ) {
+            $status = 'INTERNAL_REFERRAL';
+        }
+    } else {
+        if ( !FixMyStreet::DB::Result::Problem->open_states()->{$state} ) {
+            $status = 'CLOSED';
+        }
+    }
+
     my $params = {
-        update_id_ext => $comment->id,
-        updated_datetime => DateTime::Format::W3CDTF->format_datetime($comment->confirmed_local->set_nanosecond(0)),
+        updated_datetime => DateTime::Format::W3CDTF->format_datetime($comment->confirmed->set_nanosecond(0)),
         service_request_id => $comment->problem->external_id,
-        service_request_id_ext => $comment->problem->id,
-        status => $comment->problem->is_open ? 'OPEN' : 'CLOSED',
+        status => $status,
         email => $comment->user->email,
         description => $comment->text,
-        public_anonymity_required => $comment->anonymous ? 'TRUE' : 'FALSE',
         last_name => $lastname,
         first_name => $firstname,
     };
+
+    if ( $self->use_extended_updates ) {
+        $params->{public_anonymity_required} = $comment->anonymous ? 'TRUE' : 'FALSE',
+        $params->{update_id_ext} = $comment->id;
+        $params->{service_request_id_ext} = $comment->problem->id;
+    } else {
+        $params->{update_id} = $comment->id;
+    }
 
     if ( $comment->photo ) {
         my $cobrand = FixMyStreet::Cobrand->get_class_for_moniker($comment->cobrand)->new();
@@ -346,7 +390,11 @@ sub _get {
             $self->success(1);
         } else {
             $self->success(0);
-            $self->error( $res->status_line );
+            $self->error( sprintf(
+                "request failed: %s\n%s\n",
+                $res->status_line,
+                $uri->as_string
+            ) );
         }
     }
 
@@ -385,7 +433,7 @@ sub _post {
         return $res->decoded_content;
     } else {
         $self->success(0);
-        $self->error( sprintf( 
+        $self->error( sprintf(
             "request failed: %s\nerror: %s\n%s\n",
             $res->status_line,
             $self->_process_error( $res->decoded_content ),
@@ -419,7 +467,7 @@ sub _get_xml_object {
     my $obj;
 
     eval {
-        $obj = $simple ->XMLin( $xml );
+        $obj = $simple ->parse_string( $xml, ForceArray => [ qr/^key$/, qr/^name$/ ]  );
     };
 
     return $obj;

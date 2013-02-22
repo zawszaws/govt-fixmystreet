@@ -62,7 +62,9 @@ sub send_questionnaires_period {
             ($template = $period) =~ s/ //;
             $template = Utils::read_file( FixMyStreet->path_to( "templates/email/emptyhomes/" . $row->lang . "/questionnaire-$template.txt" )->stringify );
         } else {
-            $template = FixMyStreet->path_to( "templates", "email", $cobrand->moniker, "questionnaire.txt" )->stringify;
+            $template = FixMyStreet->path_to( "templates", "email", $cobrand->moniker, $row->lang, "questionnaire.txt" )->stringify;
+            $template = FixMyStreet->path_to( "templates", "email", $cobrand->moniker, "questionnaire.txt" )->stringify
+                unless -e $template;
             $template = FixMyStreet->path_to( "templates", "email", "default", "questionnaire.txt" )->stringify
                 unless -e $template;
             $template = Utils::read_file( $template );
@@ -87,9 +89,8 @@ sub send_questionnaires_period {
         } );
         $h{url} = $cobrand->base_url($row->cobrand_data) . '/Q/' . $token->token;
 
-        my $sender = $cobrand->contact_email;
+        my $sender = FixMyStreet->config('DO_NOT_REPLY_EMAIL');
         my $sender_name = _($cobrand->contact_name);
-        $sender =~ s/team/fms-DO-NOT-REPLY/;
 
         print "Sending questionnaire " . $questionnaire->id . ", problem "
             . $row->id . ", token " . $token->token . " to "
@@ -100,6 +101,7 @@ sub send_questionnaires_period {
             {
                 _template_ => $template,
                 _parameters_ => \%h,
+                _line_indent => $cobrand->email_indent,
                 To => [ [ $row->user->email, $row->name ] ],
                 From => [ $sender, $sender_name ],
             },

@@ -91,6 +91,7 @@ __PACKAGE__->filter_column(
             my $self = shift;
             my $ser  = shift;
             return undef unless defined $ser;
+            utf8::encode($ser) if utf8::is_utf8($ser);
             my $h = new IO::String($ser);
             return RABX::wire_rd($h);
         },
@@ -115,23 +116,21 @@ with 'FixMyStreet::Roles::Abuser';
 
 my $tz = DateTime::TimeZone->new( name => "local" );
 
-sub created_local {
-    my $self = shift;
+my $tz_f;
+$tz_f = DateTime::TimeZone->new( name => FixMyStreet->config('TIME_ZONE') )
+    if FixMyStreet->config('TIME_ZONE');
 
-    return $self->created
-      ? $self->created->set_time_zone($tz)
-      : $self->created;
-}
+my $stz = sub {
+    my ( $orig, $self ) = ( shift, shift );
+    my $s = $self->$orig(@_);
+    return $s unless $s && UNIVERSAL::isa($s, "DateTime");
+    $s->set_time_zone($tz);
+    $s->set_time_zone($tz_f) if $tz_f;
+    return $s;
+};
 
-sub confirmed_local {
-    my $self = shift;
-
-    # if confirmed is null then it doesn't get inflated so don't
-    # try and set the timezone
-    return $self->confirmed
-      ? $self->confirmed->set_time_zone($tz)
-      : $self->confirmed;
-}
+around created => $stz;
+around confirmed => $stz;
 
 # You can replace this text with custom code or comments, and it will be preserved on regeneration
 
@@ -145,6 +144,11 @@ sub check_for_errors {
 
     $errors{update} = _('Please enter a message')
       unless $self->text =~ m/\S/;
+
+    if ( $self->text && $self->problem && $self->problem->bodies_str
+        && $self->problem->bodies_str eq '2482' && length($self->text) > 2000 ) {
+        $errors{update} = _('Updates are limited to 2000 characters in length. Please shorten your update');
+    }
 
     return \%errors;
 }
@@ -185,6 +189,10 @@ sub meta_problem_state {
 
     my $state = $self->problem_state;
     $state =~ s/ -.*$//;
+
+    $state = _("not the council's responsibility") 
+        if $state eq 'not responsible';
+    $state = _('duplicate report') if $state eq 'duplicate';
 
     return $state;
 }

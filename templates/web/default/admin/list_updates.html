@@ -1,3 +1,4 @@
+[% IF updates.size %]
 <h2>[% loc('Updates') %]</h2>
 
 <table cellspacing="0" cellpadding="2" border="1">
@@ -15,7 +16,7 @@
         <th>*</th>
     </tr>
 [% FOREACH update IN updates -%]
-    <tr[% ' class="hidden"' IF update.state == 'hidden' || update.problem.state == 'hidden' %]>
+    <tr[% ' class="adminhidden"' IF update.state == 'hidden' || update.problem.state == 'hidden' %]>
         <td>[%- IF update.state == 'confirmed' && update.problem.state != 'hidden' -%]
         [%- cobrand_data = update.cobrand_data %]
         [%- cobrand_data = c.data_for_generic_update IF !update.cobrand %]
@@ -29,10 +30,11 @@
         <td>[% PROCESS format_time time=update.created %]</td> 
         <td>[% IF update.anonymous %][% loc('Yes') %][% ELSE %][% loc('No') %][% END %]</td> 
         <td>[% IF update.user.id == update.problem.user_id %][% loc('Yes') %][% ELSE %][% loc('No') %][% END %]</td>
-        <td>[% IF update.user.belongs_to_council( update.problem.council ) %][% loc('Yes') %][% ELSE %][% loc('No') %][% END %]</td>
+        <td>[% IF update.user.belongs_to_body( update.problem.bodies_str ) %][% loc('Yes') %][% ELSE %][% loc('No') %][% END %]</td>
         <td>[% update.cobrand %]<br>[% update.cobrand_data | html %]</td> 
         <td>[% update.text | html %]</td> 
         <td><a href="[% c.uri_for( 'update_edit', update.id ) %]">[% loc('Edit') %]</a></td>
-    <tr>
+    </tr>
 [% END -%]
 </table>
+[% END %]

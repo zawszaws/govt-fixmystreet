@@ -1,6 +1,8 @@
 @import "compass";
 @import "_mixins";
 
+$image-sprite: '/cobrands/fixmystreet/images/sprite.png' !default;
+
 //hacks for desk/mob only stuff
 .desk-only {
     display: block;
@@ -10,7 +12,13 @@
 }
 
 body {
-  background: #1A1A1A url(/cobrands/fixmystreet/images/tile.jpg) 0 0 repeat;
+    background: #1A1A1A;
+    color: #fff;
+}
+
+/* The OpenLayers popup sets a background image with a white background without setting the CSS colours correctly. */
+#popup {
+    color: #000;
 }
 
 h1 {
@@ -54,17 +62,16 @@ h1 {
   }
 }
 
-.nav-wrapper{
+.nav-wrapper {
   display: table-caption;
-  .nav-wrapper-2{
+  .nav-wrapper-2 {
     width: 100%;
     min-height: 4em;
     position: absolute;
-    border-top:4px solid #1a1a1a;
-    @include border-image(url(/cobrands/fixmystreet/images/tile-y-border.jpg) 4 0 0 0);
-    border-left:0;
-    border-right:0;
-    z-index:2;
+    border-top: 4px solid $primary;
+    border-left: 0;
+    border-right: 0;
+    z-index: 2;
   }
 }
 
@@ -151,7 +158,6 @@ h1 {
           background: $primary;
           padding:0.25em;
           margin:0.5em;
-          color:#333;
           @include border-radius(0.25em);
           &:hover {
             background:$primary/1.1;
@@ -165,12 +171,12 @@ h1 {
     &#mysoc-menu{
       padding: 0em 0.5em;
       margin-left: 0.25em;
-      background:$primary url(/cobrands/fixmystreet/images/tile-y.jpg);
+      background: $primary;
       @include border-radius(0 0 0.375em 0.375em);
       li{
         a{
           background:none;
-          color:#000;
+          color: $primary_text;
           text-transform: uppercase;
           font-size: 0.6875em;
           padding: 1.3em 0.7em 1em 0.7em;
@@ -205,6 +211,7 @@ h1 {
   margin-left: 0.5em;
   padding: 1em 1em 3em;
   background: #fff;
+  color: #222;
   @include box-shadow(0px 0px 6px 1px #000);
 }
 .ie6, .ie7, .ie8  {
@@ -223,6 +230,7 @@ body.mappage {
   }
   .content {
     float:left;
+    padding: 1em 1em 10em;
   }
   #main-nav ul#main-menu li a,
   #main-nav ul#main-menu li span {
@@ -374,7 +382,7 @@ body.twothirdswidthpage {
 
 //footer blocks
 #footer-mobileapps {
-  border-right:1em solid #fff;
+  border-right:1em solid transparent;
   background:none;
   padding:0;
   @include box-shadow(inset rgba(0, 0, 0, 0) 0 0 0);
@@ -395,7 +403,7 @@ body.twothirdswidthpage {
         height: 32px;
         margin:0 auto;
         text-indent: -999999px;
-        background: url(/cobrands/fixmystreet/images/sprite.png) -12px -3610px no-repeat;
+        background: url($image-sprite) -12px -3610px no-repeat;
         opacity: 0.8;
         &:hover {
           opacity: 1;
@@ -432,14 +440,14 @@ body.twothirdswidthpage {
 }
 
 #footer-help {
-  border-left:1em solid #fff;
+  border-left:1em solid transparent;
   ul {
     display:table;
     li {
       display:table-cell;
       border-bottom:none;
       &:last-child {
-        border-left:1.25em solid #fff;
+        border-left:1.25em solid transparent;
       }
     }
   }
@@ -502,7 +510,7 @@ body.twothirdswidthpage {
     left:-1em;
     width:1em;
     height:100%;
-    background:#000 url(/cobrands/fixmystreet/images/sprite.png) right -4119px no-repeat;
+    background:#000 url($image-sprite) right -4119px no-repeat;
     @include border-radius(0.25em 0 0 0.25em);
     &:hover {
       left:-1.5em;
@@ -582,19 +590,24 @@ body.twothirdswidthpage {
         padding: 0.5em 1.5em 0.5em 0;
         text-transform:none;
         &.abuse {
-          background-image:url(/cobrands/fixmystreet/images/sprite.png);
+          background-image:url($image-sprite);
           background-position:right -2935px;
         }
         &.feed {
-          background-image:url(/cobrands/fixmystreet/images/sprite.png);
+          background-image:url($image-sprite);
           background-position:right -3074px;
         }
+        &.share {
+          min-width: 5em;
+          background-image: url(/cobrands/fixmystreet/images/share.png);
+          background-position: 90% 50%;
+        }
         &.chevron {
-          background-image:url(/cobrands/fixmystreet/images/sprite.png);
+          background-image:url($image-sprite);
           background-position:right -3225px;
         }
         &.hover {
-          background-image:url(/cobrands/fixmystreet/images/sprite.png);
+          background-image:url($image-sprite);
           background-position:right -1876px;
         }
       }
@@ -618,6 +631,15 @@ body.twothirdswidthpage {
   padding-top: 0;
 }
 
+// If JS is disabled, these are still CSS positioned, so don't want behind shining through.
+#report-share, #report-updates-data {
+    background-color: #fff;
+}
+// Prevent gap in non-JS, and looks better with JS, due to some padding/margin effect.
+#report-updates-data fieldset {
+    margin-bottom: 0;
+}
+
 // pokes over the RHS with a little triangle
 .big-green-banner {
   top:auto;
@@ -625,14 +647,14 @@ body.twothirdswidthpage {
   margin-left:-2em;
   font-size:1.375em;
   padding:1em 3em 1em 1em;
-  background: $contrast1 url(/cobrands/fixmystreet/images/sprite.png) right -2188px no-repeat;
+  background: $col_click_map url($image-sprite) right -2188px no-repeat;
   &:before {
     right:0;
     left:auto;
     top:-0.5em;
     position: absolute;
     border-top: 0.5em solid transparent;
-    border-left: 0.5em solid $contrast1_dark;
+    border-left: 0.5em solid $col_click_map_dark;
     border-bottom:none;
   }
   span {
@@ -642,7 +664,7 @@ body.twothirdswidthpage {
   }
 }
 .ie6 .big-green-banner {
-  background: $contrast1 url(/cobrands/fixmystreet/images/ie_green_chevron.gif) right center no-repeat;
+  background: $col_click_map url(/cobrands/fixmystreet/images/ie_green_chevron.gif) right center no-repeat;
 }
 
 .banner {
@@ -657,11 +679,20 @@ body.twothirdswidthpage {
     }
     &#fixed {
       padding-top:5em;
-      background-image:url(/cobrands/fixmystreet/images/sprite.png);
+      background-image:url($image-sprite);
       background-position:-324px -326px;
       background-repeat:no-repeat;
       &:before {
-        border-bottom: 0.75em solid $contrast1_dark;
+        border-bottom: 0.75em solid $col_fixed_label_dark;
+      }
+    }
+    &#closed {
+      padding-top:5em;
+      background-image:url(/cobrands/fixmystreet/images/sprite.png);
+      background-position:-318px -326px;
+      background-repeat:no-repeat;
+      &:before {
+        border-bottom: 0.75em solid #666;
       }
     }
   }
@@ -758,6 +789,14 @@ textarea.form-error {
   }
 }
 
+/* Adjust the above so text flow can be different from display */
+#forgotten-pw {
+    position: relative;
+    left: 27em;
+    top: -7em;
+    margin-bottom: -7em; // So no gap in main flow
+}
+
 // Frontpage
 
 body.frontpage {
@@ -776,7 +815,7 @@ body.frontpage {
     top:3em;
     width: 300px;
     height: 60px;
-    background: url('/cobrands/fixmystreet/images/sprite.png') -2px -108px no-repeat;
+    background: url($image-sprite) -2px -108px no-repeat;
   }
   #user-meta {
     z-index:10;
@@ -826,7 +865,7 @@ body.frontpage {
 // big yellow bit full screen width
 #front-main {
   color: $primary_text;
-  background: $primary url(/cobrands/fixmystreet/images/tile-y.jpg);
+  background: $primary;
   margin: 0;
   padding: 1em;
   #front-main-container {
@@ -836,9 +875,10 @@ body.frontpage {
   h2 {
     font-style:normal;
     margin:0;
-    color:#222;
+    color: inherit;
   }
   #postcodeForm {
+    color: inherit;
     background:none;
     overflow:hidden;
     padding-bottom: 0;
@@ -858,7 +898,7 @@ body.frontpage {
         height:2em;
         width:17em;
       }
-      input#submit {
+      input#sub {
         display:block;
         float:right;
         width:3em;
@@ -868,15 +908,15 @@ body.frontpage {
     }
   }
   a {
-    color: $primary_text;
+    color: inherit;
     text-decoration: underline;
     &:hover {
       text-decoration: none;
     }
   }
   a#geolocate_link {
+    color: inherit;
     background:none;
-    color:#222;
     text-decoration: none;
     padding-bottom: 0;
     &:hover {
@@ -897,7 +937,7 @@ body.frontpage {
 }
 
 #front-howto {
-  border-right:1em solid #fff;
+  border-right:1em solid transparent;
   #front_stats {
     background:none;
     color: #222;
@@ -921,7 +961,7 @@ body.frontpage {
 }
 
 #front-recently {
-  border-left:1em solid #fff;
+  border-left:1em solid transparent;
 }
 
 #front-howto h2,
@@ -941,6 +981,59 @@ body.frontpage {
   }
 }
 
+// Admin tables
+
+$table_border_color:   #ccc;
+$table_heading_bg_col: #595959;
+$table_heading_border_col:   #7a7a7a;
+$table_heading_col:    #fff;
+$table_heading_underline_col: #393939;
+$button_col:    #fff;
+$button_bg_col: #a1a1a1;  // also search bar (tables)
+
+.admin {
+    table {
+        width: 100%;
+        font-size: 0.9em;
+        border: 1px solid $table_border_color;
+        border-collapse: collapse;
+        margin-bottom: 1em;
+        th, td {
+            padding: 0.666em 0.5em;
+            border: 1px solid $table_border_color;
+        }
+        th {
+            color: white;
+            background-color: $table_heading_bg_col;
+            border-bottom: 2px solid $table_heading_underline_col;
+            border-left: 1px solid $table_heading_border_col;
+            border-right: 1px solid $table_heading_border_col;
+            a:link, a:visited {
+                color: white;
+            }
+        }
+        td.record-id {
+            text-align: center;
+            font-weight: bold;
+        }
+        tr.filter-row td {
+            display: none; /* TODO: reveal when filtering is implemented */
+            padding: 4px 4px 4px 40px;
+            background-color: $button_bg_col;
+            background-image: url('search-icon-white.png');
+            background-position: 14px center;
+            background-repeat: no-repeat;
+            border-bottom: 2px solid $table_border_color;
+        }
+        tr.filter-row td input[type=text] {
+            background-color: #e1e1e1;
+            width: 16em;
+            @include border-radius(4px);
+            border: none;
+            padding: 3px 0.5em;
+        }
+    }
+}
 
 
 

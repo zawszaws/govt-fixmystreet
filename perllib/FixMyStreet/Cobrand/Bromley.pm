@@ -29,7 +29,7 @@ sub disambiguate_location {
     my $town = 'Bromley';
     # Bing turns High St Bromley into Bromley High St which is in 
     # Bromley by Bow.
-    if ( $string =~ /high\+st/i ) {
+    if ( $string =~ /high\s+st/i ) {
         $town .= ', BR1';
     }
     return {
@@ -80,9 +80,7 @@ sub process_extras {
 
 sub contact_email {
     my $self = shift;
-    my $type = shift || '';
-    return join( '@', 'info', 'bromley.gov.uk' ) if $type eq 'contact';
-    return $self->next::method();
+    return join( '@', 'info', 'bromley.gov.uk' );
 }
 sub contact_name { 'Bromley Council (do not reply)'; }
 

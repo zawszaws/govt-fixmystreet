@@ -775,7 +775,7 @@ sub update_from_open311_service_request {
 
             if ( !$status_notes ) {
                 # FIXME - better text here
-                $status_notes = _('Closed by council');
+                $status_notes = 'Stängt av kommunen';
             }
         }
     }

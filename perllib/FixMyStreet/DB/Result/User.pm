@@ -104,7 +104,7 @@ sub check_for_errors {
 
     my %errors = ();
 
-    if ( !$self->name || $self->name !~ m/\S/ ) {
+    if ( !$self->name ) {
         $errors{name} = _('Please enter your name');
     }
 

@@ -175,7 +175,7 @@ sub _generate_service_request_description {
     my $description = <<EOT;
 Beskrivning: @{[$problem->detail()]}
 
-LÃ¤nk till Ã¤rendet: $extra->{url}
+Länk till ärendet: $extra->{url}
 
 Skickad via Fixa Min Gata
 EOT

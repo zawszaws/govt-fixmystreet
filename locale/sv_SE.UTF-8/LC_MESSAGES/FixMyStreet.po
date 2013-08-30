@@ -474,7 +474,7 @@ msgstr ""
 
 #: templates/web/default/js/translation_strings.html:26
 msgid "Back"
-msgstr ""
+msgstr "Tillbaka"
 
 #: templates/web/default/admin/report_blocks.html:11
 msgid "Ban email address"
@@ -699,7 +699,7 @@ msgstr "Kan inte hitta användaren"
 
 #: templates/web/default/js/translation_strings.html:31
 msgid "Could not look up location"
-msgstr ""
+msgstr "Kunde inte lokalisera dig automatiskt"
 
 #: templates/web/default/admin/list_updates.html:13
 msgid "Council"
@@ -1255,7 +1255,7 @@ msgstr "Historik"
 
 #: templates/web/default/js/translation_strings.html:25
 msgid "Home"
-msgstr ""
+msgstr "Home"
 
 #: templates/web/default/index-steps.html:1
 msgid "How to report a problem"
@@ -1263,7 +1263,7 @@ msgstr "Hur man rapporterar ett problem"
 
 #: templates/web/default/js/translation_strings.html:27
 msgid "How to send successful reports"
-msgstr ""
+msgstr "Hur man lyckas bäst med att rapportera fel"
 
 #: perllib/FixMyStreet/App/Controller/Admin.pm:700
 msgid "I am afraid you cannot confirm unconfirmed reports."
@@ -1761,7 +1761,7 @@ msgstr "Inga problem har rapporteras än."
 
 #: templates/web/default/js/translation_strings.html:32
 msgid "No result returned"
-msgstr ""
+msgstr "Inget resultat returnerades"
 
 #: templates/web/default/report/_support.html:2
 #: templates/web/default/report/_support.html:4
@@ -2013,7 +2013,7 @@ msgstr "Foton från närliggande rapporter"
 
 #: templates/web/default/js/translation_strings.html:24
 msgid "Place pin on map"
-msgstr ""
+msgstr "Klicka på kartan"
 
 #: templates/web/default/admin/report_edit.html:29
 #: templates/web/default/admin/report_edit.html:30
@@ -3514,9 +3514,8 @@ msgid "Unknown alert type"
 msgstr "Okänd feltyp"
 
 #: templates/web/default/js/translation_strings.html:33
-#, fuzzy
 msgid "Unknown error"
-msgstr "Okänt"
+msgstr "Okänt fel"
 
 #: perllib/FixMyStreet/App/Controller/Report.pm:106
 msgid "Unknown problem ID"
@@ -3829,7 +3828,7 @@ msgstr "Du kan hjälpa oss med att hitta kontaktadressen för %s och eposta till
 
 #: templates/web/default/js/translation_strings.html:30
 msgid "You declined; please fill in the box above"
-msgstr ""
+msgstr "Du tackade nej; var vänlig använd textrutan ovan"
 
 #: perllib/FixMyStreet/App/Controller/Questionnaire.pm:38
 msgid "You have already answered this questionnaire. If you have a question, please <a href='%s'>get in touch</a>, or <a href='%s'>view your problem</a>.\n"
@@ -4116,7 +4115,7 @@ msgstr "eller"
 
 #: templates/web/default/js/translation_strings.html:21
 msgid "or locate me automatically"
-msgstr ""
+msgstr "Klicka här för att försöka <strong>hitta min position automatiskt</strong>."
 
 #: templates/web/default/admin/report_edit.html:18
 #: templates/web/default/admin/report_edit.html:20

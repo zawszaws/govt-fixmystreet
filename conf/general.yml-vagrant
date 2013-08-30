@@ -1,0 +1,76 @@
+# general.yml-vagrant:
+# Vagrant values for the "general" config file.
+
+# This is an abbreviated config file suitable for vagrant deploys. It should be
+# symlinked to 'general.yml' during the provisioning.
+
+# Comments have been removed to prevent them becoming out of date - please refer 
+# to general.yml-example for a fully documented file.
+
+# PostgreSQL database details for FixMyStreet
+FMS_DB_HOST: 'localhost'
+FMS_DB_PORT: '5432'
+FMS_DB_NAME: 'fms'
+FMS_DB_USER: 'vagrant'
+FMS_DB_PASS: 'secret'
+
+BASE_URL: 'http://localhost:3000'
+
+EMAIL_DOMAIN: 'example.org'
+CONTACT_EMAIL: 'team@example.org'
+CONTACT_NAME: 'FixMyStreet'
+DO_NOT_REPLY_EMAIL: 'do-not-reply@example.org'
+
+STAGING_SITE: 1
+SEND_REPORTS_ON_STAGING: 0
+
+EXAMPLE_PLACES: [ 'High Street', 'Main Street' ]
+
+LANGUAGES:
+  - 'en-gb,English,en_GB'
+
+TIME_ZONE: ""
+
+UPLOAD_DIR: '../upload/'
+GEO_CACHE: '../cache/'
+
+MAPIT_URL: 'http://mapit.mysociety.org/'
+MAPIT_TYPES: [ 'DIS', 'LBO', 'MTD', 'UTA', 'CTY', 'COI', 'LGD' ]
+
+MAPIT_ID_WHITELIST: []
+
+MAPIT_TYPES_CHILDREN: [ 'DIW', 'LBW', 'MTW', 'UTE', 'UTW', 'CED', 'COP', 'LGW' ]
+
+GEOCODER: ''
+
+GOOGLE_MAPS_API_KEY: ''
+BING_MAPS_API_KEY: ''
+
+GEOCODING_DISAMBIGUATION: ''
+
+MAP_TYPE: 'OSM'
+
+ALLOWED_COBRANDS:
+  - fixmystreet
+  - fixmystreet: 'localhost'
+
+ADMIN_BASE_URL: ''
+
+RSS_LIMIT: '20'
+ALL_REPORTS_PER_PAGE: 100
+
+SMTP_SMARTHOST: 'localhost'
+
+GAZE_URL: 'http://gaze.mysociety.org/gaze'
+
+AREA_LINKS_FROM_PROBLEMS: '0'
+
+TESTING_COUNCILS: ''
+
+MESSAGE_MANAGER_URL: ''
+KASABI_API_KEY: ''
+LONDON_REPORTIT_URL: ''
+LONDON_REPORTIT_KEY: ''
+LONDON_REPORTIT_SECRET: ''
+AUTH_SHARED_SECRET: ''
+HEARFROMYOURMP_BASE_URL: ''
